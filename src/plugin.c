@@ -1,8 +1,21 @@
 
 #include <r_core.h>
 
+#include <r_project.h>
+
 static void cmd_project(RCore *core, const char *input) {
-	r_cons_printf ("Called %s\n", input);
+	switch (*input) {
+	case 's':
+		if (input[1] == ' ') {
+			r_project_save_file (core, input + 2);
+		}
+		break;
+	case 'l':
+		if (input[1] == ' ') {
+			r_project_load_file (core, input + 2);
+		}
+		break;
+	}
 }
 
 static int r_cmd_project_call(void *user, const char *input) {

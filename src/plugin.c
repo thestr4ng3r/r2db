@@ -1,7 +1,9 @@
 
+#include <r_util.h>
 #include <r_core.h>
 
 #include <r_project.h>
+
 
 static void cmd_project(RCore *core, const char *input) {
 	switch (*input) {

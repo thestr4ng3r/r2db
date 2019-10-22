@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
+project(r2db)
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(SOURCE
@@ -7,6 +9,9 @@ set(SOURCE
 		src/plugin.c
 		src/project.c
 		src/spaces.c)
+
+list(APPEND SOURCE nxjson/nxjson.c)
+include_directories(nxjson)
 
 include_directories(include)
 

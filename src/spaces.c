@@ -7,67 +7,40 @@
  * /
  *   name=<spaces name>
  *   current=<space name>
- *   spacestack=<space name>,<space name>,<space name>
+ *   spacestack=[<space name>,<space name>,<space name>] (json)
  *   /spaces
- *     <space name>
+ *     <space name>="s"
  *     ...
  */
 
-
-static char *sdb_array_escape(const char *s) {
-	r_return_val_if_fail (s, NULL);
-	size_t l = strlen (s);
-	const char *end = s + l;
-	char *r = malloc (l * 2 + 1);
-	if (!r) {
-		return NULL;
-	}
-	char *cur = r;
-	for (; s != end; s++) {
-		char c = *s;
-		if (c == SDB_RS || c == '\\') {
-			*cur++ = '\\';
-			if (c == SDB_RS) {
-				c = '_';
-			}
-		}
-		*cur++ = c;
-	}
-	*cur = '\0';
-	return r;
-}
-
-static char *sdb_array_unescape(const char *s) {
-	r_return_val_if_fail (s, NULL);
-	size_t l = strlen (s);
-	const char *end = s + l;
-	char *r = malloc(l + 1);
-	if (!r) {
-		return NULL;
-	}
-	char *cur = r;
-	for (; s != end; cur++) {
-		char c = *s++;
-		if (c == '\\') {
-			c = *s++;
-			if (c == '_') {
-				c = ',';
-			}
-		}
-		*cur = c;
-	}
-	*cur = '\0';
-	return r;
-}
-
-R_API void r_project_save_spaces(RSpaces *spaces, Sdb *db) {
+R_API bool r_project_save_spaces(Sdb *db, RSpaces *spaces) {
 	sdb_set (db, "name", spaces->name, 0);
 	if (spaces->current) {
 		sdb_set (db, "current", spaces->current->name, 0);
 	}
+
+	PJ *j = pj_new ();
+	if(!j) {
+		return false;
+	}
+	pj_a (j);
+	RListIter *iter;
+	char *spacename;
+	r_list_foreach (spaces->spacestack, iter, spacename) {
+		pj_s (j, spacename);
+	}
+	sdb_set (db, "spacestack", pj_string (j), 0);
+	pj_free (j);
+
 	Sdb *db_spaces = sdb_ns (db, "spaces", true);
+	RBIter rbiter;
+	RSpace *space;
+	r_rbtree_foreach (spaces->spaces, rbiter, space, RSpace, rb) {
+		sdb_set (db_spaces, space->name, "s", 0);
+	}
+
+	return true;
 }
 
-R_API void r_project_load_spaces(RSpaces *spaces, Sdb *db, bool name) {
-
+R_API void r_project_load_spaces(Sdb *db, RSpaces *spaces, bool name) {
 }

@@ -47,8 +47,7 @@ R_API bool r_serialize_spaces_save(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces)
 	return true;
 }
 
-int foreach_space_cb(void *user, const char *k, const char *v)
-{
+int foreach_space_cb(void *user, const char *k, const char *v) {
 	RSpaces *spaces = user;
 	r_spaces_add (spaces, k);
 	return true;

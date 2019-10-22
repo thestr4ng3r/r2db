@@ -105,7 +105,9 @@ static void sdb_diff_ctx(SdbDiffCtx *ctx) {
 		Sdb *b = ctx->b;
 		ctx->a = ns->sdb;
 		ctx->b = b_ns;
+		ls_push (ctx->path, ns->name);
 		sdb_diff_ctx (ctx);
+		ls_pop (ctx->path);
 		ctx->a = a;
 		ctx->b = b;
 	}
@@ -124,7 +126,7 @@ static void sdb_diff_ctx(SdbDiffCtx *ctx) {
 		return;
 	}
 	kv_ctx.add = true;
-	sdb_foreach (ctx->a, sdb_diff_kv_cb, &kv_ctx);
+	sdb_foreach (ctx->b, sdb_diff_kv_cb, &kv_ctx);
 }
 
 SDB_API bool sdb_diff(Sdb *a, Sdb *b, char **diff) {

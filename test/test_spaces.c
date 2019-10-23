@@ -1,6 +1,5 @@
 
 #include <r_serialize.h>
-#include "sdb_diff.h"
 #include "minunit.h"
 
 #define PERTURBATOR "\\,\";][}{'"

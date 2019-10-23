@@ -34,6 +34,7 @@ R_API bool r_serialize_spaces_save(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces)
 		pj_s (j, spacename);
 	}
 	pj_s (j, spaces->current ? spaces->current->name : "*"); // push current manually, will be popped on load
+	pj_end (j);
 	sdb_set (db, KEY_SPACESTACK, pj_string (j), 0);
 	pj_free (j);
 

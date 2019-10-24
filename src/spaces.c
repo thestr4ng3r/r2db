@@ -74,9 +74,9 @@ R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces,
 	sdb_foreach (db_spaces, foreach_space_cb, spaces);
 
 	r_list_purge (spaces->spacestack);
-	char *stack_json_str = sdb_get (db, KEY_SPACES, NULL);
+	char *stack_json_str = sdb_get (db, KEY_SPACESTACK, NULL);
 	if (!stack_json_str) {
-		SERIALIZE_ERR ("stackspace is missing");
+		SERIALIZE_ERR ("spacestack is missing");
 		return false;
 	}
 

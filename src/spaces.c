@@ -20,12 +20,12 @@
 #define KEY_SPACESTACK "spacestack"
 #define KEY_SPACES "spaces"
 
-R_API bool r_serialize_spaces_save(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces) {
+R_API void r_serialize_spaces_save(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces) {
 	sdb_set (db, KEY_NAME, spaces->name, 0);
 
 	PJ *j = pj_new ();
 	if(!j) {
-		return false;
+		return;
 	}
 	pj_a (j);
 	RListIter *iter;
@@ -44,8 +44,6 @@ R_API bool r_serialize_spaces_save(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces)
 	r_rbtree_foreach (spaces->spaces, rbiter, space, RSpace, rb) {
 		sdb_set (db_spaces, space->name, "s", 0);
 	}
-
-	return true;
 }
 
 int foreach_space_cb(void *user, const char *k, const char *v) {

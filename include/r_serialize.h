@@ -3,8 +3,9 @@
 #define R2DB_R_SERIALIZE_H
 
 #include <r_util/r_spaces.h>
+#include <r_flag.h>
 
-R_API bool r_serialize_spaces_save(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces);
+R_API void r_serialize_spaces_save(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces);
 /**
  * @param load_name whether to overwrite the name in spaces with the value from db
  */

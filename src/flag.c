@@ -23,7 +23,7 @@
  */
 
 R_API void r_serialize_flag_zones_save(R_NONNULL Sdb *db, R_NONNULL RList/*<RFlagZoneItem *>*/ *zones) {
-	RListIter it;
+	RListIter *it;
 	RFlagZoneItem *item;
 	r_list_foreach (zones, it, item) {
 		PJ *j = pj_new ();

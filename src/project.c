@@ -1,6 +1,6 @@
 
 #include <r_project.h>
-
+#include <r_serialize.h>
 
 #define R2DB_KEY_TYPE        "type"
 #define R2DB_KEY_VERSION     "version"
@@ -12,7 +12,7 @@
 R_API RProjectErr r_project_save(RCore *core, RProject *prj) {
 	sdb_set (prj, R2DB_KEY_TYPE, R2DB_PROJECT_TYPE, 0);
 	sdb_set (prj, R2DB_KEY_VERSION, sdb_fmt ("%u", R2DB_PROJECT_VERSION), 0);
-	// TODO: save
+	r_serialize_flag_save (prj, core->flags);
 	return R_PROJECT_ERR_SUCCESS;
 }
 

@@ -10,7 +10,8 @@ set(SOURCE
 		include/r_project.h
 		src/plugin.c
 		src/project.c
-		src/spaces.c)
+		src/spaces.c
+		src/flag.c)
 
 list(APPEND SOURCE nxjson/nxjson.c)
 include_directories(nxjson)

@@ -1,6 +1,7 @@
 
 set(TESTS
-		test_spaces)
+		test_spaces
+		test_flag)
 
 foreach(test ${TESTS})
 	add_executable(${test} "${test}.c")

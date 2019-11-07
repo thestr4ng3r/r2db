@@ -64,6 +64,8 @@ R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces,
 		free (old_name);
 	}
 
+	r_spaces_purge (spaces);
+
 	Sdb *db_spaces = sdb_ns (db, KEY_SPACES, false);
 	if (!db_spaces) {
 		SERIALIZE_ERR ("failed to get spaces sub-namespace");
@@ -71,7 +73,6 @@ R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces,
 	}
 	sdb_foreach (db_spaces, foreach_space_cb, spaces);
 
-	r_list_purge (spaces->spacestack);
 	char *stack_json_str = sdb_get (db, KEY_SPACESTACK, NULL);
 	if (!stack_json_str) {
 		SERIALIZE_ERR ("spacestack is missing");
@@ -79,9 +80,9 @@ R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces,
 	}
 
 	bool res = true;
-	const nx_json *stack_json = nx_json_parse_utf8 (stack_json_str); // TODO: get json error
+	const nx_json *stack_json = nx_json_parse_utf8 (stack_json_str);
 	if (!stack_json) {
-		SERIALIZE_ERR ("failed to parse stackspace json"); // TODO: print json error
+		SERIALIZE_ERR ("failed to parse stackspace json");
 		res = false;
 		goto beach;
 	}

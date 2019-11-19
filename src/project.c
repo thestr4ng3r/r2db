@@ -2,6 +2,8 @@
 #include <r_project.h>
 #include <r_serialize.h>
 
+#include <sdb_archive.h>
+
 #define R2DB_KEY_TYPE        "type"
 #define R2DB_KEY_VERSION     "version"
 
@@ -17,13 +19,12 @@ R_API RProjectErr r_project_save(RCore *core, RProject *prj) {
 }
 
 R_API RProjectErr r_project_save_file(RCore *core, const char *file) {
-	RProject *prj = sdb_new (NULL, file, 0);
+	RProject *prj = sdb_new0 ();
 	if (!prj) {
 		return R_PROJECT_ERR_UNKNOWN;
 	}
 	r_project_save (core, prj);
-	sdb_sync (prj);
-	sdb_close (prj);
+	sdb_archive_save (prj, file);
 	sdb_free (prj);
 	return R_PROJECT_ERR_SUCCESS;
 }

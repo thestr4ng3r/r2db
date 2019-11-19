@@ -11,7 +11,9 @@ set(SOURCE
 		src/plugin.c
 		src/project.c
 		src/spaces.c
-		src/flag.c)
+		src/flag.c
+		include/sdb_archive.h
+		src/sdb_archive.c)
 
 list(APPEND SOURCE nxjson/nxjson.c)
 include_directories(nxjson)
@@ -25,6 +27,10 @@ set_target_properties(core_r2db PROPERTIES PREFIX "")
 find_package(Radare2 REQUIRED)
 target_include_directories(core_r2db PUBLIC ${RADARE2_INCLUDE_DIRS})
 target_link_libraries(core_r2db PUBLIC ${RADARE2_LIBRARIES})
+
+find_package(LibArchive REQUIRED)
+target_include_directories(core_r2db PRIVATE ${LibArchive_INCLUDE_DIRS})
+target_link_libraries(core_r2db PRIVATE ${LibArchive_LIBRARIES})
 
 install(TARGETS core_r2db DESTINATION share/radare2/plugins)
 

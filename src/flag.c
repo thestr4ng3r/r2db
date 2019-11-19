@@ -274,7 +274,7 @@ static bool load_flags(R_NONNULL Sdb *flags_db, R_NONNULL RFlag *flag) {
 	ht_pp_insert (ctx.fields, "color", (void *)FLAG_FIELD_COLOR);
 	ht_pp_insert (ctx.fields, "comment", (void *)FLAG_FIELD_COMMENT);
 	ht_pp_insert (ctx.fields, "alias", (void *)FLAG_FIELD_ALIAS);
-	bool r = sdb_foreach (flags_db, flag_load_cb, flag);
+	bool r = sdb_foreach (flags_db, flag_load_cb, &ctx);
 	ht_pp_free (ctx.fields);
 	return r;
 }

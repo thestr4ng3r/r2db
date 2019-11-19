@@ -3,7 +3,7 @@
 #include "minunit.h"
 #include "test_utils.h"
 
-Sdb *ref_db() {
+Sdb *ref_0_db() {
 	Sdb *db = sdb_new0 ();
 
 	sdb_set (db, "base", "-1337", 0);
@@ -31,7 +31,7 @@ Sdb *ref_db() {
 	return db;
 }
 
-bool test_flag_save() {
+RFlag *ref_0_flag() {
 	RFlag *flag = r_flag_new ();
 
 	flag->base = -1337;
@@ -57,22 +57,76 @@ bool test_flag_save() {
 	r_flag_zone_add (flag, PERTURBATOR, 0xdeadbeef);
 	r_flag_zone_add (flag, PERTURBATOR, UT64_MAX - 1);
 
+	return flag;
+}
+
+Sdb *ref_1_db() {
+	Sdb *db = sdb_new0 ();
+
+	sdb_set (db, "base", "0", 0);
+	sdb_set (db, "realnames", "0", 0);
+
+	Sdb *spaces_db = sdb_ns (db, "spaces", true);
+	sdb_set (spaces_db, "name", "fs", 0);
+	sdb_set (spaces_db, "spacestack", "[\"*\"]", 0);
+	sdb_ns (spaces_db, "spaces", true);
+	sdb_ns (db, "tags", true);
+	sdb_ns (db, "zones", true);
+	sdb_ns (db, "flags", true);
+
+	return db;
+}
+
+RFlag *ref_1_flag() {
+	RFlag *flag = r_flag_new ();
+	flag->base = 0;
+	flag->realnames = false;
+	return flag;
+}
+
+static bool test_save(RFlag *flag, Sdb *ref) {
 	Sdb *db = sdb_new0 ();
 	r_serialize_flag_save (db, flag);
-
-	Sdb *ref = ref_db ();
 	assert_sdb_eq (db, ref, "save");
-
-	// TODO: test realnames=false, everything else empty
-
 	sdb_free (db);
 	sdb_free (ref);
 	r_flag_free (flag);
-	mu_end;
+	return true;
 }
 
+static bool test_load(Sdb *db, RFlag *ref) {
+	RFlag *flag = r_flag_new ();
+
+	char *err = NULL;
+	bool suck = r_serialize_flag_load (db, flag, &err);
+	mu_assert (err, err == NULL);
+	mu_assert ("load success", suck);
+
+	// TODO: compare everything in flag against ref
+
+	sdb_free (db);
+	r_flag_free (ref);
+	return true;
+}
+
+#define TEST_CALL(name, call) \
+bool name() { \
+	if (!(call)) { \
+		return false; \
+	} \
+	mu_end; \
+}
+
+TEST_CALL (test_flag_0_save, test_save(ref_0_flag (), ref_0_db ()));
+TEST_CALL (test_flag_1_save, test_save(ref_1_flag (), ref_1_db ()));
+TEST_CALL (test_flag_0_load, test_load(ref_0_db (), ref_0_flag ()));
+TEST_CALL (test_flag_1_load, test_load(ref_1_db (), ref_1_flag ()));
+
 int all_tests() {
-	mu_run_test (test_flag_save);
+	mu_run_test (test_flag_0_save);
+	mu_run_test (test_flag_1_save);
+	mu_run_test (test_flag_0_load);
+	mu_run_test (test_flag_1_load);
 	return tests_passed != tests_run;
 }
 

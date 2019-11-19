@@ -85,6 +85,7 @@ beach:
 }
 
 R_API bool r_serialize_flag_zones_load(R_NONNULL Sdb *db, R_NONNULL RList/*<RFlagZoneItem *>*/ *zones, R_NULLABLE char **err) {
+	r_return_val_if_fail (zones, false);
 	r_list_purge (zones);
 	bool r = sdb_foreach (db, zone_load_cb, zones);
 	if (!r) {
@@ -239,7 +240,7 @@ static int flag_load_cb(void *user, const char *k, const char *v) {
 		goto beach;
 	}
 
-	RFlagItem *item = r_flag_set (ctx->flag, k, proto.offset, proto.size);
+	RFlagItem *item = r_flag_set (ctx->flag, k, proto.offset - ctx->flag->base, proto.size);
 	if (proto.realname) {
 		r_flag_item_set_realname (item, proto.realname);
 	}
@@ -317,6 +318,7 @@ R_API bool r_serialize_flag_load(R_NONNULL Sdb *db, R_NONNULL RFlag *flag, R_NUL
 		SERIALIZE_ERR ("missing zones namespace");
 		return false;
 	}
+	r_flag_zone_reset (flag);
 	if (!r_serialize_flag_zones_load (zones_db, flag->zones, err)) {
 		return false;
 	}

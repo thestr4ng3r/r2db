@@ -21,4 +21,9 @@ static void print_sdb(Sdb *sdb) {
 
 #define assert_sdb_eq(actual, expected, msg) mu_assert ((msg), sdb_diff (expected, actual, diff_cb, NULL));
 
+#define assert_streq_null(actual, expected, message) do { \
+	mu_assert (message, (!(actual)) == (!(expected))); \
+	if (expected) { mu_assert_streq (actual, expected, message); } \
+} while(0)
+
 #endif //R2DB_TEST_UTILS_H

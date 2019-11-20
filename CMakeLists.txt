@@ -8,7 +8,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(SOURCE
 		include/r_project.h
-		src/plugin.c
+		src/core_r2db.c
 		src/project.c
 		src/spaces.c
 		src/flag.c

@@ -78,14 +78,22 @@ static void sdb_archive_save_ns(struct archive *archive, struct archive_entry *e
 	}
 }
 
-SDB_API bool sdb_archive_save(Sdb *db, const char *filename) {
+static char *tmpfilename(const char *filename) {
 	size_t filename_len = strlen (filename);
 	char *tmpfile = malloc (filename_len + 5);
 	if (!tmpfile) {
-		return false;
+		return NULL;
 	}
 	memcpy (tmpfile, filename, filename_len);
 	memcpy (tmpfile + filename_len, ".tmp", 5);
+	return tmpfile;
+}
+
+SDB_API bool sdb_archive_save(Sdb *db, const char *filename) {
+	char *tmpfile = tmpfilename (filename);
+	if (!tmpfile) {
+		return false;
+	}
 
 	bool ret = true;
 	struct archive *archive = archive_write_new ();
@@ -114,5 +122,69 @@ beach:
 }
 
 SDB_API Sdb *sdb_archive_load(const char *filename) {
-	return NULL;
+	Sdb *db = NULL;
+
+	char *tmpfile = tmpfilename (filename);
+	if (!tmpfile) {
+		return NULL;
+	}
+
+	struct archive *archive = archive_read_new ();
+	archive_read_support_filter_all(archive);
+	archive_read_support_format_all(archive);
+	if (archive_read_open_filename (archive, filename, 10240) != ARCHIVE_OK) {
+		eprintf ("Failed to open archive %s\n", filename);
+		goto beach;
+	}
+
+	db = sdb_new0 ();
+
+	struct archive_entry *entry;
+	while (archive_read_next_header (archive, &entry) == ARCHIVE_OK) {
+		if (archive_entry_filetype (entry) != AE_IFREG) {
+			continue;
+		}
+		const char *path = archive_entry_pathname (entry);
+		size_t pathlen = strlen (path);
+		if (pathlen < 3 || memcmp (path + pathlen - 3, "sdb", 3) != 0) {
+			eprintf ("Unknown file in archive: %s\n", path);
+			continue;
+		}
+		pathlen -= 3;
+		if (pathlen > 0 && path[pathlen - 1] == '/') {
+			pathlen--;
+		}
+		int fd = open (tmpfile, O_BINARY | O_RDWR | O_CREAT | O_TRUNC, SDB_MODE);
+		if (fd <= 0) {
+			eprintf ("Failed to open tmpfile %s\n", tmpfile);
+			break;
+		}
+		archive_read_data_into_fd (archive, fd);
+		close (fd);
+
+		Sdb *tmp_db = sdb_new0 ();
+		if (sdb_open (tmp_db, tmpfile) == -1) {
+			eprintf ("Failed to open tmpfile %s for reading\n", tmpfile);
+			break;
+		}
+
+		char *nspath = malloc (pathlen + 1);
+		if (!nspath) {
+			sdb_free (tmp_db);
+			continue;
+		}
+		memcpy (nspath, path, pathlen);
+		nspath[pathlen] = '\0';
+		Sdb *ns = sdb_ns_path (db, nspath, true);
+		sdb_copy (tmp_db, ns);
+		free (nspath);
+		sdb_free (tmp_db);
+	}
+
+	remove (tmpfile);
+
+beach:
+	archive_read_free (archive);
+	free (tmpfile);
+	return db;
 }

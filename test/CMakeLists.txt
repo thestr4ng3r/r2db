@@ -1,7 +1,8 @@
 
 set(TESTS
 		test_spaces
-		test_flag)
+		test_flag
+		test_sdb_archive)
 
 foreach(test ${TESTS})
 	add_executable(${test} "${test}.c")

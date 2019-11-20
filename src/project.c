@@ -14,7 +14,7 @@
 R_API RProjectErr r_project_save(RCore *core, RProject *prj) {
 	sdb_set (prj, R2DB_KEY_TYPE, R2DB_PROJECT_TYPE, 0);
 	sdb_set (prj, R2DB_KEY_VERSION, sdb_fmt ("%u", R2DB_PROJECT_VERSION), 0);
-	r_serialize_flag_save (prj, core->flags);
+	r_serialize_flag_save (sdb_ns (prj, "flag", true), core->flags);
 	return R_PROJECT_ERR_SUCCESS;
 }
 
@@ -44,23 +44,23 @@ R_API RProjectErr r_project_load(RCore *core, RProject *prj) {
 	} else if (version > R2DB_PROJECT_VERSION) {
 		return R_PROJECT_ERR_NEWER_VERSION;
 	}
-	// TODO: load
+
+	Sdb *flag_db = sdb_ns (prj, "flag", false); // TODO: check existance
+	char *err = NULL;
+	if (!r_serialize_flag_load (flag_db, core->flags, &err)) {
+		eprintf ("%s\n", err);
+	}
+	free (err);
+
 	return R_PROJECT_ERR_SUCCESS;
 }
 
 R_API RProjectErr r_project_load_file(RCore *core, const char *file) {
-	RProject *prj = sdb_new0();
+	RProject *prj = sdb_archive_load (file);
 	if (!prj) {
 		return R_PROJECT_ERR_UNKNOWN;
 	}
-	RProjectErr err = R_PROJECT_ERR_SUCCESS;
-	if (sdb_open (prj, file) >= 0) {
-		r_project_load (core, prj);
-		sdb_close (prj);
-	} else {
-		eprintf ("Failed to open r2db file.\n");
-		err = R_PROJECT_ERR_FILE;
-	}
+	RProjectErr err = r_project_load (core, prj);
 	sdb_free (prj);
 	return err;
 }

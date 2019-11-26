@@ -2,8 +2,7 @@
 #ifndef R2DB_R_SERIALIZE_H
 #define R2DB_R_SERIALIZE_H
 
-#include <r_util/r_spaces.h>
-#include <r_flag.h>
+#include <r_core.h>
 
 R_API void r_serialize_spaces_save(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces);
 /**
@@ -15,5 +14,8 @@ R_API void r_serialize_flag_zones_save(R_NONNULL Sdb *db, R_NONNULL RList/*<RFla
 R_API bool r_serialize_flag_zones_load(R_NONNULL Sdb *db, R_NONNULL RList/*<RFlagZoneItem *>*/ *zones, R_NULLABLE char **err);
 R_API void r_serialize_flag_save(R_NONNULL Sdb *db, R_NONNULL RFlag *flag);
 R_API bool r_serialize_flag_load(R_NONNULL Sdb *db, R_NONNULL RFlag *flag, R_NULLABLE char **err);
+
+R_API void r_serialize_core_save(R_NONNULL Sdb *db, R_NONNULL RCore *core);
+R_API bool r_serialize_core_load(R_NONNULL Sdb *db, R_NONNULL RCore *core, R_NULLABLE char **err);
 
 #endif //R2DB_R_SERIALIZE_H

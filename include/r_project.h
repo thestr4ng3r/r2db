@@ -17,13 +17,14 @@ typedef enum r_project_err {
 	R_PROJECT_ERR_INVALID_TYPE,
 	R_PROJECT_ERR_INVALID_VERSION,
 	R_PROJECT_ERR_NEWER_VERSION,
+	R_PROJECT_ERR_INVALID_CONTENTS,
 	R_PROJECT_ERR_UNKNOWN
 } RProjectErr;
 
 R_API RProjectErr r_project_save(RCore *core, RProject *prj);
 R_API RProjectErr r_project_save_file(RCore *core, const char *file);
-R_API RProjectErr r_project_load(RCore *core, RProject *prj);
-R_API RProjectErr r_project_load_file(RCore *core, const char *file);
+R_API RProjectErr r_project_load(RCore *core, RProject *prj, char **err);
+R_API RProjectErr r_project_load_file(RCore *core, const char *file, char **err);
 
 #ifdef __cplusplus
 }

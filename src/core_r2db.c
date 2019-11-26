@@ -26,7 +26,12 @@ static void cmd_project(RCore *core, const char *input) {
 		break;
 	case 'l':
 		if (input[1] == ' ') {
-			r_project_load_file (core, input + 2);
+			char *err = NULL;
+			r_project_load_file (core, input + 2, &err);
+			if (err) {
+				eprintf ("Failed to load project: %s\n", err);
+				free (err);
+			}
 		}
 		break;
 	default:

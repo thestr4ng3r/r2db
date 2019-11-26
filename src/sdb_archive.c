@@ -64,7 +64,7 @@ static void sdb_archive_save_ns(struct archive *archive, struct archive_entry *e
 	SdbNs *ns;
 	ls_foreach (db->ns, it, ns) {
 		size_t subnamelen = strlen (ns->name);
-		char *subpath = malloc ((pathlen ? pathlen + 1 : 0) + subnamelen);
+		char *subpath = malloc ((pathlen ? pathlen + 1 : 0) + subnamelen + 1);
 		if (!subpath) {
 			continue;
 		}

@@ -7,13 +7,15 @@ option(R2DB_ENABLE_TESTS "Enable Tests for r2db" ON)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(SOURCE
+		include/sdb_archive.h
+		src/sdb_archive.c
 		include/r_project.h
+		include/r_serialize.h
 		src/core_r2db.c
 		src/project.c
 		src/spaces.c
 		src/flag.c
-		include/sdb_archive.h
-		src/sdb_archive.c)
+		src/core.c)
 
 list(APPEND SOURCE nxjson/nxjson.c)
 include_directories(nxjson)

@@ -26,7 +26,6 @@ static int load_config_cb(void *user, const char *k, const char *v) {
 	RConfig *config = user;
 	RConfigNode *node = r_config_node_get (config, k);
 	if (!node) {
-		eprintf ("Node %s does not exist in RConfig\n", k);
 		return 1;
 	}
 	r_config_set (config, k, v);

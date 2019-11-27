@@ -249,3 +249,41 @@ PNl tmp/flags.r2db
 f
 EOF
 RUN
+
+NAME=config
+FILE=-
+EXPECT=<<EOF
+true
+8
+myfunctions
+--
+false
+0
+fcn
+--
+true
+8
+myfunctions
+EOF
+CMDS=<<EOF
+e asm.describe=1
+e asm.describe
+e asm.indentspace=8
+e asm.indentspace
+e anal.fcnprefix=myfunctions
+e anal.fcnprefix
+PNs tmp/config.r2db
+?e --
+e asm.describe=0
+e asm.describe
+e asm.indentspace=0
+e asm.indentspace
+e anal.fcnprefix=fcn
+e anal.fcnprefix
+?e --
+PNl tmp/config.r2db
+e asm.describe
+e asm.indentspace
+e anal.fcnprefix
+EOF
+RUN

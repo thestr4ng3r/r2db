@@ -2,6 +2,7 @@
 set(TESTS
 		test_spaces
 		test_flag
+		test_config
 		test_sdb_archive)
 
 foreach(test ${TESTS})

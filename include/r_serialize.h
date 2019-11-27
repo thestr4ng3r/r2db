@@ -1,3 +1,4 @@
+/* radare - LGPL - Copyright 2019 - thestr4ng3r */
 
 #ifndef R2DB_R_SERIALIZE_H
 #define R2DB_R_SERIALIZE_H
@@ -14,6 +15,9 @@ R_API void r_serialize_flag_zones_save(R_NONNULL Sdb *db, R_NONNULL RList/*<RFla
 R_API bool r_serialize_flag_zones_load(R_NONNULL Sdb *db, R_NONNULL RList/*<RFlagZoneItem *>*/ *zones, R_NULLABLE char **err);
 R_API void r_serialize_flag_save(R_NONNULL Sdb *db, R_NONNULL RFlag *flag);
 R_API bool r_serialize_flag_load(R_NONNULL Sdb *db, R_NONNULL RFlag *flag, R_NULLABLE char **err);
+
+R_API void r_serialize_config_save(R_NONNULL Sdb *db, R_NONNULL RConfig *config);
+R_API bool r_serialize_config_load(R_NONNULL Sdb *db, R_NONNULL RConfig *config, R_NULLABLE char **err);
 
 R_API void r_serialize_core_save(R_NONNULL Sdb *db, R_NONNULL RCore *core);
 R_API bool r_serialize_core_load(R_NONNULL Sdb *db, R_NONNULL RCore *core, R_NULLABLE char **err);

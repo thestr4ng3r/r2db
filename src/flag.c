@@ -1,3 +1,4 @@
+/* radare - LGPL - Copyright 2019 - thestr4ng3r */
 
 #include <r_serialize.h>
 

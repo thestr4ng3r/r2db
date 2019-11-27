@@ -287,3 +287,20 @@ e asm.indentspace
 e anal.fcnprefix
 EOF
 RUN
+
+NAME=seek
+FILE=-
+EXPECT=<<EOF
+0x1337
+0x1337
+EOF
+CMDS=<<EOF
+s 0x1337
+s
+PNs tmp/seek.r2db
+o--
+s 0
+PNl tmp/seek.r2db
+s
+EOF
+RUN

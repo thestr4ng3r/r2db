@@ -304,3 +304,20 @@ PNl tmp/seek.r2db
 s
 EOF
 RUN
+
+NAME=blocksize
+FILE=-
+EXPECT=<<EOF
+0x123
+0x123
+EOF
+CMDS=<<EOF
+b 0x123
+b
+PNs tmp/blocksize.r2db
+o--
+b 0x100
+PNl tmp/blocksize.r2db
+b
+EOF
+RUN

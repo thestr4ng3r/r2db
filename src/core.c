@@ -10,6 +10,7 @@
  *   /config => see config.c
  *   /flags => see flag.c
  *   offset=<offset>
+ *   blocksize=<blocksize>
  */
 
 R_API void r_serialize_core_save(R_NONNULL Sdb *db, R_NONNULL RCore *core) {
@@ -21,6 +22,11 @@ R_API void r_serialize_core_save(R_NONNULL Sdb *db, R_NONNULL RCore *core) {
 		return;
 	}
 	sdb_set (db, "offset", buf, 0);
+
+	if (snprintf (buf, sizeof (buf), "0x%"PFMT32x, core->blocksize) < 0) {
+		return;
+	}
+	sdb_set (db, "blocksize", buf, 0);
 }
 
 R_API bool r_serialize_core_load(R_NONNULL Sdb *db, R_NONNULL RCore *core, R_NULLABLE char **err) {
@@ -38,12 +44,22 @@ R_API bool r_serialize_core_load(R_NONNULL Sdb *db, R_NONNULL RCore *core, R_NUL
 	SUB ("config", r_serialize_config_load (subdb, core->config, err));
 	SUB ("flags", r_serialize_flag_load (subdb, core->flags, err));
 
-	const char *offset_str = sdb_get (db, "offset", 0);
-	if (!offset_str || !*offset_str) {
+	const char *str = sdb_get (db, "offset", 0);
+	if (!str || !*str) {
 		SERIALIZE_ERR ("missing offset in core");
 		return false;
 	}
-	core->offset = strtoull (offset_str, NULL, 0);
+	core->offset = strtoull (str, NULL, 0);
+
+	str = sdb_get (db, "blocksize", 0);
+	if (!str || !*str) {
+		SERIALIZE_ERR ("missing blocksize in core");
+		return false;
+	}
+	core->blocksize = strtoull (str, NULL, 0);
+
+	// handled by config already:
+	// cfglog, cmdrepeat, cmdtimes
 
 	return true;
 }

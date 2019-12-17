@@ -7,6 +7,7 @@ WIP Project format for radare2.
 
 A project is one namespaced (nested) SDB.
 Each component gets its own namespace and can nest it further.
+The high-level progress of this implementation is tracked in #3.
 Serializations for different components and data objects are defined by a pair of load/save functions in [r_serialize.h](include/r_serialize.h).
 
 These serializations MUST correctly handle all edge cases that may occur in the data, such as special characters or '\0' characters.

@@ -16,7 +16,8 @@ set(SOURCE
 		src/spaces.c
 		src/flag.c
 		src/core.c
-		src/config.c)
+		src/config.c
+		src/anal.c)
 
 list(APPEND SOURCE nxjson/nxjson.c)
 include_directories(nxjson)

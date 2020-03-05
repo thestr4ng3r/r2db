@@ -8,10 +8,34 @@
  *
  * /
  *   /blocks
- *     0x<addr>={size:<ut64>, jump?:<ut64>, type:<int>}
+ *     0x<addr>={size:<ut64>, jump?:<ut64>, traced?:true, folded?:true, colorize?:<ut32>,
+ *               fingerprint?:"<base64>", diff?: <RAnalDiff>}
  *     ...
  *
+ *
+ * RAnalDiff JSON:
+ * {type?:"m"|"u", addr:<ut64>, dist:<double>, name?:<str>, size:<ut32>}
+ *
  */
+
+static void diff_save(R_NONNULL PJ *j, RAnalDiff *diff) {
+	pj_o (j);
+	switch (diff->type) {
+	case R_ANAL_DIFF_TYPE_MATCH:
+		pj_ks (j, "type", "m");
+		break;
+	case R_ANAL_DIFF_TYPE_UNMATCH:
+		pj_ks (j, "type", "u");
+		break;
+	}
+	pj_kn (j, "addr", diff->addr);
+	pj_kd (j, "dist", diff->dist);
+	if (diff->name) {
+		pj_ks (j, "name", diff->name);
+	}
+	pj_kn (j, "size", (ut64)diff->size);
+	pj_end (j);
+}
 
 static void block_store(R_NONNULL Sdb *db, const char *key, RAnalBlock *block) {
 	PJ *j = pj_new ();
@@ -27,35 +51,30 @@ static void block_store(R_NONNULL Sdb *db, const char *key, RAnalBlock *block) {
 	if (block->fail != UT64_MAX) {
 		pj_kn (j, "fail", block->fail);
 	}
-	pj_ki (j, "type", block->type);
+	if (block->traced) {
+		pj_kb (j, "traced", true);
+	}
+	if (block->folded) {
+		pj_kb (j, "folded", true);
+	}
+	if (block->colorize) {
+		pj_kn (j, "colorize", (ut64)block->colorize);
+	}
+	if (block->fingerprint) {
+		char *b64 = r_base64_encode_dyn ((const char *)block->fingerprint, block->size);
+		if (b64) {
+			pj_ks (j, "fingerprint", b64);
+			free (b64);
+		}
+	}
+	if (block->diff) {
+		pj_k (j, "diff");
+		diff_save (j, block->diff);
+	}
 
-	//int traced;
-	//ut32 colorize;
-	//char *label;
-	//ut8 *fingerprint;
-	//RAnalDiff *diff;
-	//RAnalCond *cond;
-	//RAnalSwitchOp *switch_op;
-//
-	//int ninstr;
-	//// offsets of instructions in this block
-	//ut16 *op_pos;
-	//// size of the op_pos array
-	//int op_pos_size;
-	//ut8 *op_bytes;
-//
-	//ut8 op_sz;
-	///* these are used also in pdr: */
-	//RAnalBlock *prev;
-	//RAnalBlock *failbb;
-	//RAnalBlock *jumpbb;
-	//RList /*struct r_anal_bb_t*/ *cases;
-	//ut8 *parent_reg_arena;
-	//int stackptr;
-	//int parent_stackptr;
-	//bool folded;
-	//ut64 cmpval;
-	//const char *cmpreg;
+	// TODO: cond?
+
+	// TODO: rest
 
 	pj_end (j);
 	sdb_set (db, key, pj_string (j), 0);

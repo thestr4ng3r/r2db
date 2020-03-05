@@ -39,5 +39,6 @@ target_link_libraries(core_r2db PRIVATE ${LibArchive_LIBRARIES})
 install(TARGETS core_r2db DESTINATION share/radare2/plugins)
 
 if(R2DB_ENABLE_TESTS)
+	enable_testing()
 	add_subdirectory(test/unit)
 endif()

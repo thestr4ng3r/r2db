@@ -27,9 +27,11 @@ R_API bool r_serialize_config_load(R_NONNULL Sdb *db, R_NONNULL RConfig *config,
 
 // RAnal
 
+R_API void r_serialize_anal_case_op_save(R_NONNULL PJ *j, R_NONNULL RAnalCaseOp *op);
+R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitchOp *op);
+R_API void r_serialize_anal_diff_save(R_NONNULL PJ *j, R_NONNULL RAnalDiff *diff);
 R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
-
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API void r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 

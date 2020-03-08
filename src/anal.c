@@ -152,7 +152,7 @@ R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL nx_json *json) {
 	if (json->type != NX_JSON_OBJECT) {
 		return NULL;
 	}
-	RAnalSwitchOp *sop = r_anal_switch_op_new (0, 0, 0);
+	RAnalSwitchOp *sop = r_anal_switch_op_new (0, 0, 0, 0);
 	if (!sop) {
 		return NULL;
 	}

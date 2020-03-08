@@ -8,7 +8,7 @@ bool test_anal_diff_save() {
 
 	PJ *j = pj_new ();
 	r_serialize_anal_diff_save (j, diff);
-	mu_assert_streq ("{\"addr\":18446744073709551615,\"dist\":0.000000,\"size\":0}", pj_string (j), "empty diff");
+	mu_assert_streq (pj_string (j), "{\"addr\":18446744073709551615,\"dist\":0.000000,\"size\":0}", "empty diff");
 	pj_free (j);
 
 	diff->name = strdup (PERTURBATOR_JSON);
@@ -18,13 +18,13 @@ bool test_anal_diff_save() {
 	diff->size = 0x4242;
 	j = pj_new ();
 	r_serialize_anal_diff_save (j, diff);
-	mu_assert_streq ("{\"type\":\"m\",\"addr\":4919,\"dist\":42.300000,\"name\":\"\\\\\\\\,\\\\\\\";] [}{'\",\"size\":16962}", pj_string (j), "full diff");
+	mu_assert_streq (pj_string (j), "{\"type\":\"m\",\"addr\":4919,\"dist\":42.300000,\"name\":\"\\\\\\\\,\\\\\\\";] [}{'\",\"size\":16962}", "full diff");
 	pj_free (j);
 
 	diff->type = R_ANAL_DIFF_TYPE_UNMATCH;
 	j = pj_new ();
 	r_serialize_anal_diff_save (j, diff);
-	mu_assert_streq ("{\"type\":\"u\",\"addr\":4919,\"dist\":42.300000,\"name\":\"\\\\\\\\,\\\\\\\";] [}{'\",\"size\":16962}", pj_string (j), "full unmatch diff");
+	mu_assert_streq (pj_string (j), "{\"type\":\"u\",\"addr\":4919,\"dist\":42.300000,\"name\":\"\\\\\\\\,\\\\\\\";] [}{'\",\"size\":16962}", "full unmatch diff");
 	pj_free (j);
 
 	r_anal_diff_free (diff);
@@ -76,9 +76,29 @@ bool test_anal_diff_load() {
 	mu_end;
 }
 
+bool test_anal_switch_op_save() {
+	RAnalSwitchOp *op = r_anal_switch_op_new (1337, 42, 45, 46);
+
+	PJ *j = pj_new ();
+	r_serialize_anal_switch_op_save (j, op);
+	mu_assert_streq (pj_string (j), "{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[]}", "empty switch");
+	pj_free (j);
+
+	r_anal_switch_op_add_case (op, 1339, 42, 0xdead);
+	r_anal_switch_op_add_case (op, 1340, 43, 0xbeef);
+	j = pj_new ();
+	r_serialize_anal_switch_op_save (j, op);
+	mu_assert_streq (pj_string (j), "{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[{\"addr\":1339,\"jump\":57005,\"value\":42},{\"addr\":1340,\"jump\":48879,\"value\":43}]}", "full switch");
+	pj_free (j);
+
+	r_anal_switch_op_free (op);
+	mu_end;
+}
+
 int all_tests() {
 	mu_run_test (test_anal_diff_save);
 	mu_run_test (test_anal_diff_load);
+	mu_run_test (test_anal_switch_op_save);
 	return tests_passed != tests_run;
 }
 

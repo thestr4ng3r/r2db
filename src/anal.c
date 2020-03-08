@@ -148,6 +148,55 @@ R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitc
 	pj_end (j);
 }
 
+R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL nx_json *json) {
+	if (json->type != NX_JSON_OBJECT) {
+		return NULL;
+	}
+	RAnalSwitchOp *sop = r_anal_switch_op_new (0, 0, 0);
+	if (!sop) {
+		return NULL;
+	}
+	nx_json *child;
+	for (child = json->children.first; child; child = child->next) {
+		if (child->type == NX_JSON_INTEGER) {
+			if (strcmp (child->key, "addr") == 0) {
+				sop->addr = child->num.u_value;
+			} else if (strcmp (child->key, "min") == 0) {
+				sop->min_val = child->num.u_value;
+			} else if (strcmp (child->key, "max") == 0) {
+				sop->max_val = child->num.u_value;
+			} else if (strcmp (child->key, "def") == 0) {
+				sop->def_val = child->num.u_value;
+			}
+		} else if (child->type == NX_JSON_ARRAY && strcmp (child->key, "cases") == 0) {
+			nx_json *baby;
+			for (baby = child->children.first; baby; baby = baby->next) {
+				if (baby->type != NX_JSON_OBJECT) {
+					continue;
+				}
+				ut64 addr = UT64_MAX;
+				ut64 jump = UT64_MAX;
+				ut64 value = UT64_MAX;
+				nx_json *semen;
+				for (semen = baby->children.first; semen; semen = semen->next) {
+					if (semen->type != NX_JSON_INTEGER) {
+						continue;
+					}
+					if (strcmp (semen->key, "addr") == 0) {
+						addr = semen->num.u_value;
+					} else if (strcmp (semen->key, "jump") == 0) {
+						jump = semen->num.u_value;
+					} else if (strcmp (semen->key, "value") == 0) {
+						value = semen->num.u_value;
+					}
+				}
+				r_anal_switch_op_add_case (sop, addr, value, jump);
+			}
+		}
+	}
+	return sop;
+}
+
 static void block_store(R_NONNULL Sdb *db, const char *key, RAnalBlock *block) {
 	PJ *j = pj_new ();
 	if (!j) {
@@ -247,6 +296,7 @@ enum {
 typedef struct {
 	RAnal *anal;
 	KeyParser *parser;
+	RSerializeAnalDiffParser diff_parser;
 } BlockLoadCtx;
 
 static int block_load_cb(void *user, const char *k, const char *v) {
@@ -323,11 +373,13 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 			}
 			break;
 		}
-
-		// TODO: all these fields
 		case BLOCK_FIELD_DIFF:
+			r_anal_diff_free (proto.diff);
+			proto.diff = r_serialize_anal_diff_load (ctx->diff_parser, child);
 			break;
 		case BLOCK_FIELD_SWITCH_OP:
+			r_anal_switch_op_free (proto.switch_op);
+			proto.switch_op = r_serialize_anal_switch_op_load (child);
 			break;
 		case BLOCK_FIELD_NINSTR:
 			break;
@@ -352,8 +404,8 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 	return true;
 }
 
-R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-	BlockLoadCtx ctx = { anal, key_parser_new () };
+R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser) {
+	BlockLoadCtx ctx = { anal, diff_parser, key_parser_new () };
 	if (!ctx.parser) {
 		return;
 	}

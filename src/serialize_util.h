@@ -38,5 +38,4 @@ static inline void key_parser_add(KeyParser *parser, const char *key, int val) {
 		} \
 	}
 
-
 #endif //R2DB_SERIALIZE_UTIL_H

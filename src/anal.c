@@ -47,6 +47,82 @@ R_API void r_serialize_anal_diff_save(R_NONNULL PJ *j, R_NONNULL RAnalDiff *diff
 	pj_end (j);
 }
 
+enum {
+	DIFF_FIELD_TYPE,
+	DIFF_FIELD_ADDR,
+	DIFF_FIELD_DIST,
+	DIFF_FIELD_NAME,
+	DIFF_FIELD_SIZE
+};
+
+R_API RSerializeAnalDiffParser r_serialize_anal_diff_parser_new() {
+	RSerializeAnalDiffParser parser = key_parser_new ();
+	if (!parser) {
+		return NULL;
+	}
+	key_parser_add (parser, "type", DIFF_FIELD_TYPE);
+	key_parser_add (parser, "addr", DIFF_FIELD_ADDR);
+	key_parser_add (parser, "dist", DIFF_FIELD_DIST);
+	key_parser_add (parser, "name", DIFF_FIELD_NAME);
+	key_parser_add (parser, "size", DIFF_FIELD_SIZE);
+	return parser;
+}
+
+R_API void r_serialize_anal_diff_parser_free(RSerializeAnalDiffParser parser) {
+	key_parser_free (parser);
+}
+
+R_API R_NULLABLE RAnalDiff *r_serialize_anal_diff_load(R_NONNULL RSerializeAnalDiffParser parser, R_NONNULL const nx_json *json) {
+	if (json->type != NX_JSON_OBJECT) {
+		return NULL;
+	}
+	RAnalDiff *diff = r_anal_diff_new ();
+	if (!diff) {
+		return NULL;
+	}
+	KEY_PARSER_JSON (parser, json, child, {
+		case DIFF_FIELD_TYPE:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			if (strcmp (child->text_value, "m") == 0) {
+				diff->type = R_ANAL_DIFF_TYPE_MATCH;
+			} else if (strcmp (child->text_value, "u") == 0) {
+				diff->type = R_ANAL_DIFF_TYPE_UNMATCH;
+			}
+			break;
+		case DIFF_FIELD_ADDR:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			diff->addr = child->num.u_value;
+			break;
+		case DIFF_FIELD_DIST:
+			if (child->type == NX_JSON_INTEGER) {
+				diff->dist = child->num.u_value;
+			} else if (child->type == NX_JSON_DOUBLE) {
+				diff->dist = child->num.dbl_value;
+			}
+			break;
+		case DIFF_FIELD_NAME:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			free (diff->name);
+			diff->name = strdup (child->text_value);
+			break;
+		case DIFF_FIELD_SIZE:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			diff->size = child->num.u_value;
+			break;
+		default:
+			break;
+	})
+	return diff;
+}
+
 R_API void r_serialize_anal_case_op_save(R_NONNULL PJ *j, R_NONNULL RAnalCaseOp *op) {
 	pj_o (j);
 	pj_kn (j, "addr", op->addr);

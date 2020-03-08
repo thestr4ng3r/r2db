@@ -4,6 +4,7 @@
 #define R2DB_R_SERIALIZE_H
 
 #include <r_core.h>
+#include <nxjson.h>
 
 // RSpaces
 
@@ -29,6 +30,11 @@ R_API bool r_serialize_config_load(R_NONNULL Sdb *db, R_NONNULL RConfig *config,
 
 R_API void r_serialize_anal_case_op_save(R_NONNULL PJ *j, R_NONNULL RAnalCaseOp *op);
 R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitchOp *op);
+
+typedef void *RSerializeAnalDiffParser;
+R_API RSerializeAnalDiffParser r_serialize_anal_diff_parser_new();
+R_API void r_serialize_anal_diff_parser_free(RSerializeAnalDiffParser parser);
+R_API R_NULLABLE RAnalDiff *r_serialize_anal_diff_load(R_NONNULL RSerializeAnalDiffParser parser, R_NONNULL const nx_json *json);
 R_API void r_serialize_anal_diff_save(R_NONNULL PJ *j, R_NONNULL RAnalDiff *diff);
 R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 

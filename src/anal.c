@@ -1,6 +1,8 @@
 /* radare - LGPL - Copyright 2020 - thestr4ng3r */
 
 #include <r_serialize.h>
+#include <nxjson.h>
+#include "serialize_util.h"
 
 /*
  *
@@ -149,8 +151,152 @@ R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 	r_strbuf_fini (&key);
 }
 
-R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+enum {
+	BLOCK_FIELD_SIZE,
+	BLOCK_FIELD_JUMP,
+	BLOCK_FIELD_TRACED,
+	BLOCK_FIELD_FOLDED,
+	BLOCK_FIELD_COLORIZE,
+	BLOCK_FIELD_FINGERPRINT,
+	BLOCK_FIELD_DIFF,
+	BLOCK_FIELD_SWITCH_OP,
+	BLOCK_FIELD_NINSTR,
+	BLOCK_FIELD_OP_POS,
+	BLOCK_FIELD_STACKPTR,
+	BLOCK_FIELD_PARENT_STACKPTR,
+	BLOCK_FIELD_CMPVAL,
+	BLOCK_FIELD_CMPREG
+};
 
+typedef struct {
+	RAnal *anal;
+	KeyParser *parser;
+} BlockLoadCtx;
+
+static int block_load_cb(void *user, const char *k, const char *v) {
+	BlockLoadCtx *ctx = user;
+
+	char *json_str = strdup (v);
+	if (!json_str) {
+		return true;
+	}
+	const nx_json *json = nx_json_parse_utf8 (json_str);
+	if (!json || json->type != NX_JSON_OBJECT) {
+		free (json_str);
+		return false;
+	}
+
+	RAnalBlock proto = { 0 };
+	size_t fingerprint_size;
+	KEY_PARSER_JSON (ctx->parser, json, child, {
+		case BLOCK_FIELD_SIZE:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			proto.size = child->num.u_value;
+			break;
+		case BLOCK_FIELD_JUMP:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			proto.jump = child->num.u_value;
+			break;
+		case BLOCK_FIELD_TRACED:
+			if (child->type != NX_JSON_BOOL) {
+				break;
+			}
+			proto.traced = child->num.u_value;
+			break;
+		case BLOCK_FIELD_FOLDED:
+			if (child->type != NX_JSON_BOOL) {
+				break;
+			}
+			proto.folded = child->num.u_value;
+			break;
+		case BLOCK_FIELD_COLORIZE:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			proto.colorize = (ut32)child->num.u_value;
+			break;
+		case BLOCK_FIELD_FINGERPRINT: {
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			if (proto.fingerprint) {
+				free (proto.fingerprint);
+				proto.fingerprint = NULL;
+			}
+			fingerprint_size = strlen (child->text_value);
+			if (!fingerprint_size) {
+				break;
+			}
+			proto.fingerprint = malloc (fingerprint_size);
+			if (!proto.fingerprint) {
+				break;
+			}
+			int decsz = r_base64_decode (proto.fingerprint, child->text_value, fingerprint_size);
+			if (decsz <= 0) {
+				free (proto.fingerprint);
+				proto.fingerprint = NULL;
+			} else if (decsz < fingerprint_size) {
+				ut8 *n = realloc (proto.fingerprint, (size_t)decsz);
+				if (n) {
+					proto.fingerprint = n;
+				}
+			}
+			break;
+		}
+
+		// TODO: all these fields
+		case BLOCK_FIELD_DIFF:
+			break;
+		case BLOCK_FIELD_SWITCH_OP:
+			break;
+		case BLOCK_FIELD_NINSTR:
+			break;
+		case BLOCK_FIELD_OP_POS:
+			break;
+		case BLOCK_FIELD_STACKPTR:
+			break;
+		case BLOCK_FIELD_PARENT_STACKPTR:
+			break;
+		case BLOCK_FIELD_CMPVAL:
+			break;
+		case BLOCK_FIELD_CMPREG:
+			break;
+		default:
+			break;
+	})
+
+	ut64 addr = strtoull (k, NULL, 0);
+
+	// TODO: create bb and apply data from proto
+
+	return true;
+}
+
+R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	BlockLoadCtx ctx = { anal, key_parser_new () };
+	if (!ctx.parser) {
+		return;
+	}
+	key_parser_add (ctx.parser, "size", BLOCK_FIELD_SIZE);
+	key_parser_add (ctx.parser, "jump", BLOCK_FIELD_JUMP);
+	key_parser_add (ctx.parser, "traced", BLOCK_FIELD_TRACED);
+	key_parser_add (ctx.parser, "folded", BLOCK_FIELD_FOLDED);
+	key_parser_add (ctx.parser, "colorize", BLOCK_FIELD_COLORIZE);
+	key_parser_add (ctx.parser, "fingerprint", BLOCK_FIELD_FINGERPRINT);
+	key_parser_add (ctx.parser, "diff", BLOCK_FIELD_DIFF);
+	key_parser_add (ctx.parser, "switch_op", BLOCK_FIELD_SWITCH_OP);
+	key_parser_add (ctx.parser, "ninstr", BLOCK_FIELD_NINSTR);
+	key_parser_add (ctx.parser, "op_pos", BLOCK_FIELD_OP_POS);
+	key_parser_add (ctx.parser, "stackptr", BLOCK_FIELD_STACKPTR);
+	key_parser_add (ctx.parser, "parent_stackptr", BLOCK_FIELD_PARENT_STACKPTR);
+	key_parser_add (ctx.parser, "cmpval", BLOCK_FIELD_CMPVAL);
+	key_parser_add (ctx.parser, "cmpreg", BLOCK_FIELD_CMPREG);
+	sdb_foreach (db, block_load_cb, &ctx);
+	key_parser_free (ctx.parser);
 }
 
 

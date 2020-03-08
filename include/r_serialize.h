@@ -31,7 +31,13 @@ R_API void r_serialize_anal_case_op_save(R_NONNULL PJ *j, R_NONNULL RAnalCaseOp 
 R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitchOp *op);
 R_API void r_serialize_anal_diff_save(R_NONNULL PJ *j, R_NONNULL RAnalDiff *diff);
 R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
+
+/**
+ * RAnal must not contain any blocks when calling this function!
+ * All loaded blocks will have a ref of 1 after this function and should be unrefd once after loading functions.
+ */
 R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
+
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API void r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 

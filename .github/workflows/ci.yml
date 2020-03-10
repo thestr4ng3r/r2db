@@ -29,6 +29,9 @@ jobs:
           meson --prefix=/usr ..
           ninja
           sudo ninja install
+          cd ../test/src
+          make
+          export PATH="`pwd`:$PATH"
       - name: Build and Install
         run: |
           mkdir build && cd build
@@ -39,4 +42,8 @@ jobs:
         run: |
           cd build
           make test
+      - name: R2R Tests
+        run: |
+          cd test
+          make
 

@@ -7,9 +7,13 @@ node_modules:
 .PHONY: install
 install: node_modules
 
-.PHONY: run
-run: node_modules r2r
+.PHONY: run-javashit
+run-javashit: node_modules bins
 	npx r2r db/extras
 
-r2r:
-	git clone https://github.com/radareorg/radare2-regressions --depth 1 r2r
+.PHONY: run
+run: bins
+	r2r db/extras/r2db
+
+bins:
+	git clone https://github.com/radareorg/radare2-testbins --depth 1 bins

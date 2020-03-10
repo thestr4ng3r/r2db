@@ -27,6 +27,8 @@ R_API void r_serialize_core_save(R_NONNULL Sdb *db, R_NONNULL RCore *core) {
 		return;
 	}
 	sdb_set (db, "blocksize", buf, 0);
+
+	r_serialize_anal_save (db, core->anal);
 }
 
 R_API bool r_serialize_core_load(R_NONNULL Sdb *db, R_NONNULL RCore *core, R_NULLABLE char **err) {
@@ -60,6 +62,8 @@ R_API bool r_serialize_core_load(R_NONNULL Sdb *db, R_NONNULL RCore *core, R_NUL
 
 	// handled by config already:
 	// cfglog, cmdrepeat, cmdtimes
+
+	r_serialize_anal_load(db, core->anal);
 
 	return true;
 }

@@ -30,6 +30,7 @@ R_API bool r_serialize_config_load(R_NONNULL Sdb *db, R_NONNULL RConfig *config,
 
 R_API void r_serialize_anal_case_op_save(R_NONNULL PJ *j, R_NONNULL RAnalCaseOp *op);
 R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitchOp *op);
+R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL const nx_json *json);
 
 typedef void *RSerializeAnalDiffParser;
 R_API RSerializeAnalDiffParser r_serialize_anal_diff_parser_new();
@@ -43,6 +44,9 @@ R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
  * All loaded blocks will have a ref of 1 after this function and should be unrefd once after loading functions.
  */
 R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser);
+
+R_API void r_serialize_anal_hint_save(R_NONNULL PJ *j, R_NONNULL RAnalHint *hint);
+R_API void r_serialize_anal_hint_load(R_NONNULL Sdb *db, R_NONNULL RAnalHint *hint);
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API void r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);

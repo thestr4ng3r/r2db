@@ -30,6 +30,7 @@ R_API bool r_serialize_config_load(R_NONNULL Sdb *db, R_NONNULL RConfig *config,
 
 R_API void r_serialize_anal_case_op_save(R_NONNULL PJ *j, R_NONNULL RAnalCaseOp *op);
 R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitchOp *op);
+R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL const nx_json *json);
 
 typedef void *RSerializeAnalDiffParser;
 R_API RSerializeAnalDiffParser r_serialize_anal_diff_parser_new();

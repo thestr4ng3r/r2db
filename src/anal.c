@@ -148,7 +148,7 @@ R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitc
 	pj_end (j);
 }
 
-R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL nx_json *json) {
+R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL const nx_json *json) {
 	if (json->type != NX_JSON_OBJECT) {
 		return NULL;
 	}

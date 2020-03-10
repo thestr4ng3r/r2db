@@ -95,10 +95,49 @@ bool test_anal_switch_op_save() {
 	mu_end;
 }
 
+bool test_anal_switch_op_load() {
+	char *str = strdup ("{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[]}");
+	const nx_json *json = nx_json_parse_utf8 (str);
+	RAnalSwitchOp *sop = r_serialize_anal_switch_op_load (json);
+	nx_json_free (json);
+	free (str);
+	mu_assert_notnull (sop, "sop");
+	mu_assert_eq (sop->addr, 1337, "addr");
+	mu_assert_eq (sop->min_val, 42, "min val");
+	mu_assert_eq (sop->max_val, 45, "max val");
+	mu_assert_eq (sop->def_val, 46, "def val");
+	mu_assert (r_list_empty (sop->cases), "no cases");
+	r_anal_switch_op_free (sop);
+
+	str = strdup("{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[{\"addr\":1339,\"jump\":57005,\"value\":42},{\"addr\":1340,\"jump\":48879,\"value\":43}]}");
+	json = nx_json_parse_utf8 (str);
+	sop = r_serialize_anal_switch_op_load (json);
+	nx_json_free (json);
+	free (str);
+	mu_assert_notnull (sop, "sop");
+	mu_assert_eq (sop->addr, 1337, "addr");
+	mu_assert_eq (sop->min_val, 42, "min val");
+	mu_assert_eq (sop->max_val, 45, "max val");
+	mu_assert_eq (sop->def_val, 46, "def val");
+	mu_assert_eq (r_list_length (sop->cases), 2, "cases count");
+	RAnalCaseOp *cop = r_list_get_n (sop->cases, 0);
+	mu_assert_eq (cop->addr, 1339, "addr");
+	mu_assert_eq (cop->jump, 0xdead, "jump");
+	mu_assert_eq (cop->value, 42, "value");
+	cop = r_list_get_n (sop->cases, 1);
+	mu_assert_eq (cop->addr, 1340, "addr");
+	mu_assert_eq (cop->jump, 0xbeef, "jump");
+	mu_assert_eq (cop->value, 43, "value");
+	r_anal_switch_op_free (sop);
+
+	mu_end;
+}
+
 int all_tests() {
 	mu_run_test (test_anal_diff_save);
 	mu_run_test (test_anal_diff_load);
 	mu_run_test (test_anal_switch_op_save);
+	mu_run_test (test_anal_switch_op_load);
 	return tests_passed != tests_run;
 }
 

@@ -428,17 +428,16 @@ R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 	key_parser_free (ctx.parser);
 }
 
-R_API bool r_serialize_anal_hints_save(ut64 addr, const RAnalAddrHintRecord *record, Sdb *db)
-{
-	printf ("Anal Foreach!\n");
-	if (record == NULL) {
-		printf("DUH I crash!\n");
-		return false;
-	}
-
-	printf ("%p\n", record);
+R_API bool r_serialize_anal_hints_save(ut64 addr, const RVector/*<const RAnalAddrHintRecord>*/ *records, Sdb *db) {
+	printf ("Anal hint safe!\n");
+	RAnalAddrHintRecord **it;
+	r_vector_foreach (records, it) {
+		printf ("Anal for each!\n");
+		RAnalAddrHintRecord *r = *it;
+		// Do something with it
+		printf ("[0x%llx] Type %d : 0x%llx\n", addr, r->type, r->val);
+ 	}
 	/* No need to store each value seperately, it is always stored in the same union. (endiannes issues? Todo; check) */
-	printf ("[0x%llx] Type %d : 0x%llx\n", addr, record->type, record->val);
 	return true;
 }
 

@@ -2,6 +2,7 @@
 
 #include <r_serialize.h>
 #include <nxjson.h>
+#include <r_anal.h>
 #include "serialize_util.h"
 
 /*
@@ -427,31 +428,32 @@ R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 	key_parser_free (ctx.parser);
 }
 
-// Remember: anal/hint.c
-//           r_anal_hint_set lno : 1780
-R_API void r_serialize_anal_hints_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-	// For each addr do:
-	// R_API RAnalHint *r_anal_hint_get(RAnal *a, ut64 addr) {
-	// Store hint per addr
-
-}
-
-R_API void r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-	r_anal_hint_clear (anal); // First ensure nothing is set.
-	const char *str = sdb_get (db, "syntax", 0);
-	if (!str || !*str) {
-		SERIALIZE_ERR ("missing syntax in anal");
+R_API bool r_serialize_anal_hints_save(ut64 addr, const RAnalAddrHintRecord *record, Sdb *db)
+{
+	printf ("Anal Foreach!\n");
+	if (record == NULL) {
+		printf("DUH I crash!\n");
 		return false;
 	}
 
-	// For each in sdb list get set for addr all
-	// r_anal_hint_set_syntax (anal, ut64 addr, str);
+	printf ("%p\n", record);
+	/* No need to store each value seperately, it is always stored in the same union. (endiannes issues? Todo; check) */
+	printf ("[0x%llx] Type %d : 0x%llx\n", addr, record->type, record->val);
+	return true;
+}
 
+
+
+R_API void r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	r_anal_hint_clear (anal); // First ensure nothing is set.
+
+	// Todo;
 }
 
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-	r_serialize_anal_hints_save(db, anal);
+	printf ("Anal Save!\n");
+	r_anal_addr_hints_foreach (anal, (RAnalAddrHintRecordsCb)r_serialize_anal_hints_save, (Sdb*)db);
 }
 
 R_API void r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {

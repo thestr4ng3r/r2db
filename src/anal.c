@@ -429,11 +429,10 @@ R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 }
 
 R_API bool r_serialize_anal_hints_save(ut64 addr, const RVector/*<const RAnalAddrHintRecord>*/ *records, Sdb *db) {
-	printf ("Anal hint safe!\n");
-	RAnalAddrHintRecord **it;
-	r_vector_foreach (records, it) {
+	RAnalAddrHintRecord *r;
+	printf("%p\n", records->a);
+	r_vector_foreach (records, r) {
 		printf ("Anal for each!\n");
-		RAnalAddrHintRecord *r = *it;
 		// Do something with it
 		printf ("[0x%llx] Type %d : 0x%llx\n", addr, r->type, r->val);
  	}
@@ -451,7 +450,6 @@ R_API void r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal)
 
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-	printf ("Anal Save!\n");
 	r_anal_addr_hints_foreach (anal, (RAnalAddrHintRecordsCb)r_serialize_anal_hints_save, (Sdb*)db);
 }
 

@@ -29,9 +29,6 @@ jobs:
           meson --prefix=/usr ..
           ninja
           sudo ninja install
-          cd ../test/src
-          make
-          export PATH="`pwd`:$PATH"
       - name: Build and Install
         run: |
           mkdir build && cd build

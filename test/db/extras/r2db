@@ -1,5 +1,5 @@
 NAME=flags
-FILE=r2r/bins/elf/crackme0x05
+FILE=bins/elf/crackme0x05
 EXPECT=<<EOF
 0x00000000 0 section.
 0x00000000 441 section..comment

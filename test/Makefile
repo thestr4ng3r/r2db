@@ -1,15 +1,9 @@
 
 all: run
 
-node_modules:
-	npm install
-
-.PHONY: install
-install: node_modules
-
 .PHONY: run
-run: node_modules r2r
-	npx r2r db/extras
+run: bins
+	r2r -L db/extras/r2db
 
-r2r:
-	git clone https://github.com/radareorg/radare2-regressions --depth 1 r2r
+bins:
+	git clone https://github.com/radareorg/radare2-testbins --depth 1 bins

@@ -39,4 +39,8 @@ jobs:
         run: |
           cd build
           make test
+      - name: R2R Tests
+        run: |
+          cd test
+          make
 

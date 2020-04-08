@@ -240,7 +240,9 @@ static void block_store(R_NONNULL Sdb *db, const char *key, RAnalBlock *block) {
 		r_serialize_anal_switch_op_save (j, block->switch_op);
 	}
 
-	pj_ki (j, "ninstr", block->ninstr);
+	if (block->ninstr) {
+		pj_ki (j, "ninstr", block->ninstr);
+	}
 	if (block->op_pos && block->ninstr > 1) {
 		pj_k (j, "op_pos");
 		pj_a (j);
@@ -254,9 +256,15 @@ static void block_store(R_NONNULL Sdb *db, const char *key, RAnalBlock *block) {
 	// op_bytes is only java, never set
 	// parent_reg_arena is never set
 
-	pj_ki (j, "stackptr", block->stackptr);
-	pj_ki (j, "parent_stackptr", block->parent_stackptr);
-	pj_kn (j, "cmpval", block->cmpval);
+	if (block->stackptr) {
+		pj_ki (j, "stackptr", block->stackptr);
+	}
+	if (block->parent_stackptr != INT_MAX) {
+		pj_ki (j, "parent_stackptr", block->parent_stackptr);
+	}
+	if (block->cmpval != UT64_MAX) {
+		pj_kn (j, "cmpval", block->cmpval);
+	}
 	if (block->cmpreg) {
 		pj_ks (j, "cmpreg", block->cmpreg);
 	}
@@ -315,7 +323,11 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 	}
 
 	RAnalBlock proto = { 0 };
+	proto.jump = UT64_MAX;
+	proto.fail = UT64_MAX;
 	proto.size = UT64_MAX;
+	proto.parent_stackptr = INT_MAX;
+	proto.cmpval = UT64_MAX;
 	size_t fingerprint_size = SIZE_MAX;
 	KEY_PARSER_JSON (ctx->parser, json, child, {
 		case BLOCK_FIELD_SIZE:
@@ -374,10 +386,12 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 			if (decsz <= 0) {
 				free (proto.fingerprint);
 				proto.fingerprint = NULL;
+				fingerprint_size = 0;
 			} else if (decsz < fingerprint_size) {
 				ut8 *n = realloc (proto.fingerprint, (size_t)decsz);
 				if (n) {
 					proto.fingerprint = n;
+					fingerprint_size = decsz;
 				}
 			}
 			break;
@@ -434,7 +448,7 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 			if (child->type != NX_JSON_INTEGER) {
 				break;
 			}
-			proto.cmpval = (int)child->num.u_value;
+			proto.cmpval = child->num.u_value;
 			break;
 		case BLOCK_FIELD_CMPREG:
 			if (child->type != NX_JSON_STRING) {
@@ -445,6 +459,8 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 		default:
 			break;
 	})
+	nx_json_free (json);
+	free (json_str);
 
 	errno = 0;
 	ut64 addr = strtoull (k, NULL, 0);
@@ -467,8 +483,11 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 	block->diff = proto.diff;
 	block->switch_op = proto.switch_op;
 	block->ninstr = proto.ninstr;
-	block->op_pos = proto.op_pos;
-	block->op_pos_size = proto.op_pos_size;
+	if (proto.op_pos) {
+		free (block->op_pos);
+		block->op_pos = proto.op_pos;
+		block->op_pos_size = proto.op_pos_size;
+	}
 	block->stackptr = proto.stackptr;
 	block->parent_stackptr = proto.parent_stackptr;
 	block->cmpval = proto.cmpval;
@@ -483,10 +502,11 @@ error:
 	return false;
 }
 
-R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser) {
-	BlockLoadCtx ctx = { anal, diff_parser, key_parser_new () };
+R_API bool r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err) {
+	BlockLoadCtx ctx = { anal, key_parser_new (), diff_parser };
 	if (!ctx.parser) {
-		return;
+		SERIALIZE_ERR ("parser init failed");
+		return false;
 	}
 	key_parser_add (ctx.parser, "size", BLOCK_FIELD_SIZE);
 	key_parser_add (ctx.parser, "jump", BLOCK_FIELD_JUMP);
@@ -503,8 +523,12 @@ R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 	key_parser_add (ctx.parser, "parent_stackptr", BLOCK_FIELD_PARENT_STACKPTR);
 	key_parser_add (ctx.parser, "cmpval", BLOCK_FIELD_CMPVAL);
 	key_parser_add (ctx.parser, "cmpreg", BLOCK_FIELD_CMPREG);
-	sdb_foreach (db, block_load_cb, &ctx);
+	bool ret = sdb_foreach (db, block_load_cb, &ctx);
 	key_parser_free (ctx.parser);
+	if (!ret) {
+		SERIALIZE_ERR ("basic blocks parsing failed");
+	}
+	return ret;
 }
 
 

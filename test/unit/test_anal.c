@@ -73,6 +73,7 @@ bool test_anal_diff_load() {
 	mu_assert_streq (diff->name, PERTURBATOR_JSON, "name");
 	r_anal_diff_free (diff);
 
+	r_serialize_anal_diff_parser_free (parser);
 	mu_end;
 }
 
@@ -133,11 +134,143 @@ bool test_anal_switch_op_load() {
 	mu_end;
 }
 
+Sdb *blocks_ref_db() {
+	Sdb *db = sdb_new0 ();
+	sdb_set (db, "0x539", "{\"size\":42}", 0);
+	sdb_set (db, "0x4d2", "{\"size\":32,\"jump\":4883,\"fail\":16915,\"traced\":true,\"folded\":true,\"colorize\":16711680,\"fingerprint\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=\",\"diff\":{\"addr\":54123,\"dist\":0.000000,\"size\":0},\"switch_op\":{\"addr\":49232,\"min\":3,\"max\":5,\"def\":7,\"cases\":[]},\"ninstr\":3,\"op_pos\":[4,7],\"stackptr\":43,\"parent_stackptr\":57,\"cmpval\":3735928559,\"cmpreg\":\"rax\"}", 0);
+	return db;
+}
+
+bool test_anal_block_save() {
+	RAnal *anal = r_anal_new ();
+
+	r_anal_create_block (anal, 1337, 42);
+
+	RAnalBlock *block = r_anal_create_block (anal, 1234, 32);
+	block->jump = 0x1313;
+	block->fail = 0x4213;
+	block->traced = true;
+	block->folded = true;
+	block->colorize = 0xff0000;
+	block->fingerprint = malloc (block->size);
+	ut8 v;
+	for (v = 0; v < block->size; v++) {
+		block->fingerprint[v] = v;
+	}
+	block->diff = r_anal_diff_new ();
+	block->diff->addr = 54123;
+	block->switch_op = r_anal_switch_op_new (49232, 3, 5, 7);
+	block->ninstr = 3;
+	mu_assert ("enough size for op_pos test", block->op_pos_size >= 2); // if this fails, just change the test
+	block->op_pos[0] = 4;
+	block->op_pos[1] = 7;
+	block->stackptr = 43;
+	block->parent_stackptr = 57;
+	block->cmpval = 0xdeadbeef;
+	block->cmpreg = "rax";
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_blocks_save (db, anal);
+
+	Sdb *expected = blocks_ref_db ();
+	assert_sdb_eq (db, expected, "anal blocks save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_block_load() {
+	RAnal *anal = r_anal_new ();
+
+	Sdb *db = blocks_ref_db ();
+	RSerializeAnalDiffParser diff_parser = r_serialize_anal_diff_parser_new ();
+	bool succ = r_serialize_anal_blocks_load (db, anal, diff_parser, NULL);
+	mu_assert ("load success", succ);
+
+	RAnalBlock *a = NULL;
+	RAnalBlock *b = NULL;
+	size_t count = 0;
+
+	RBIter iter;
+	RAnalBlock *block;
+	r_rbtree_foreach (anal->bb_tree, iter, block, RAnalBlock, _rb) {
+		count++;
+		if (block->addr == 1337) {
+			a = block;
+		} else if (block->addr == 1234)  {
+			b = block;
+		}
+	}
+	mu_assert_eq (count, 2, "loaded blocks count");
+
+	mu_assert_notnull (a, "block a");
+	mu_assert_eq (a->size, 42, "size");
+	mu_assert_eq (a->jump, UT64_MAX, "jump");
+	mu_assert_eq (a->fail, UT64_MAX, "fail");
+	mu_assert ("traced", !a->traced);
+	mu_assert ("folded", !a->folded);
+	mu_assert_eq (a->colorize, 0, "colorize");
+	mu_assert_null (a->fingerprint, "fingerprint");
+	mu_assert_null (a->diff, "diff");
+	mu_assert_null (a->switch_op, "switch op");
+	mu_assert_eq (a->ninstr, 0, "ninstr");
+	mu_assert_eq (a->stackptr, 0, "stackptr");
+	mu_assert_eq (a->parent_stackptr, INT_MAX, "parent_stackptr");
+	mu_assert_eq (a->cmpval, UT64_MAX, "cmpval");
+	mu_assert_null (a->cmpreg, "cmpreg");
+
+	mu_assert_notnull (b, "block b");
+	mu_assert_eq (b->size, 32, "size");
+	mu_assert_eq (b->jump, 0x1313, "jump");
+	mu_assert_eq (b->fail, 0x4213, "fail");
+	mu_assert ("traced", b->traced);
+	mu_assert ("folded", b->folded);
+	mu_assert_eq (b->colorize, 0xff0000, "colorize");
+	mu_assert_notnull (b->fingerprint, "fingerprint");
+	mu_assert_memeq (b->fingerprint,
+			(const ut8 *)"\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10"
+			"\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f", 32, "fingerprint");
+	mu_assert_notnull (b->diff, "diff");
+	mu_assert_eq (b->diff->addr, 54123, "diff addr"); // diff is covered in detail by its own tests
+	mu_assert_notnull (b->switch_op, "switch op");
+	mu_assert_eq (b->switch_op->addr, 49232, "switch op addr"); // switch_op is covered in detail by its own tests
+	mu_assert_eq (b->ninstr, 3, "ninstr");
+	mu_assert ("op_pos_size", b->op_pos_size >= b->ninstr - 1);
+	mu_assert_eq (b->op_pos[0], 4, "op_pos[0]");
+	mu_assert_eq (b->op_pos[1], 7, "op_pos[1]");
+	mu_assert_eq (b->stackptr, 43, "stackptr");
+	mu_assert_eq (b->parent_stackptr, 57, "parent_stackptr");
+	mu_assert_eq (b->cmpval, 0xdeadbeef, "cmpval");
+	mu_assert_ptreq (b->cmpreg, r_str_constpool_get (&anal->constpool, "rax"), "cmpreg from pool");
+
+	r_anal_free (anal);
+	anal = r_anal_new ();
+	// This could lead to a buffer overflow if unchecked:
+	sdb_set (db, "0x539", "{\"size\":42,\"ninstr\":4,\"op_pos\":[4,7]}", 0);
+	succ = r_serialize_anal_blocks_load (db, anal, diff_parser, NULL);
+	mu_assert ("reject invalid op_pos array length", !succ);
+
+	r_anal_free (anal);
+	anal = r_anal_new ();
+	// This could lead to a buffer overflow if unchecked:
+	sdb_set (db, "0x539", "{\"size\":33,\"fingerprint\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=\"}", 0);
+	succ = r_serialize_anal_blocks_load (db, anal, diff_parser, NULL);
+	mu_assert ("reject invalid fingerprint size", !succ);
+
+	sdb_free (db);
+	r_anal_free (anal);
+	r_serialize_anal_diff_parser_free (diff_parser);
+	mu_end;
+}
+
 int all_tests() {
 	mu_run_test (test_anal_diff_save);
 	mu_run_test (test_anal_diff_load);
 	mu_run_test (test_anal_switch_op_save);
 	mu_run_test (test_anal_switch_op_load);
+	mu_run_test (test_anal_block_save);
+	mu_run_test (test_anal_block_load);
 	return tests_passed != tests_run;
 }
 

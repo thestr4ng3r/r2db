@@ -43,7 +43,7 @@ R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
  * RAnal must not contain any blocks when calling this function!
  * All loaded blocks will have a ref of 1 after this function and should be unrefd once after loading functions.
  */
-R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser);
+R_API bool r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err);
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API void r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);

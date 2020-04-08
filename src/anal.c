@@ -3,6 +3,7 @@
 #include <r_serialize.h>
 #include <nxjson.h>
 #include "serialize_util.h"
+#include <errno.h>
 
 /*
  *
@@ -10,7 +11,7 @@
  *
  * /
  *   /blocks
- *     0x<addr>={size:<ut64>, jump?:<ut64>, traced?:true, folded?:true, colorize?:<ut32>,
+ *     0x<addr>={size:<ut64>, jump?:<ut64>, fail?:<ut64>, traced?:true, folded?:true, colorize?:<ut32>,
  *               fingerprint?:"<base64>", diff?: <RAnalDiff>, switch_op?:<RAnalSwitchOp>,
  *               ninstr:<int>, op_pos?:[<ut16>], stackptr:<int>, parent_stackptr:<int>,
  *               cmpval:<ut64>, cmpreg?:<str>}
@@ -279,6 +280,7 @@ R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 enum {
 	BLOCK_FIELD_SIZE,
 	BLOCK_FIELD_JUMP,
+	BLOCK_FIELD_FAIL,
 	BLOCK_FIELD_TRACED,
 	BLOCK_FIELD_FOLDED,
 	BLOCK_FIELD_COLORIZE,
@@ -313,7 +315,8 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 	}
 
 	RAnalBlock proto = { 0 };
-	size_t fingerprint_size;
+	proto.size = UT64_MAX;
+	size_t fingerprint_size = SIZE_MAX;
 	KEY_PARSER_JSON (ctx->parser, json, child, {
 		case BLOCK_FIELD_SIZE:
 			if (child->type != NX_JSON_INTEGER) {
@@ -326,6 +329,12 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 				break;
 			}
 			proto.jump = child->num.u_value;
+			break;
+		case BLOCK_FIELD_FAIL:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			proto.fail = child->num.u_value;
 			break;
 		case BLOCK_FIELD_TRACED:
 			if (child->type != NX_JSON_BOOL) {
@@ -382,26 +391,96 @@ static int block_load_cb(void *user, const char *k, const char *v) {
 			proto.switch_op = r_serialize_anal_switch_op_load (child);
 			break;
 		case BLOCK_FIELD_NINSTR:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			proto.ninstr = (int)child->num.s_value;
 			break;
-		case BLOCK_FIELD_OP_POS:
+		case BLOCK_FIELD_OP_POS: {
+			if (child->type != NX_JSON_ARRAY) {
+				break;
+			}
+			if (proto.op_pos) {
+				free (proto.op_pos);
+				proto.op_pos = NULL;
+			}
+			proto.op_pos = calloc (child->children.length, sizeof (ut16));
+			proto.op_pos_size = 0;
+			nx_json *baby;
+			for (baby = child->children.first; baby; baby = baby->next) {
+				if (baby->type != NX_JSON_INTEGER) {
+					free (proto.op_pos);
+					proto.op_pos = NULL;
+					proto.op_pos_size = 0;
+					break;
+				}
+				proto.op_pos[proto.op_pos_size++] = (ut16)baby->num.u_value;
+			}
 			break;
+		}
 		case BLOCK_FIELD_STACKPTR:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			proto.stackptr = (int)child->num.s_value;
 			break;
 		case BLOCK_FIELD_PARENT_STACKPTR:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			proto.parent_stackptr = (int)child->num.s_value;
 			break;
 		case BLOCK_FIELD_CMPVAL:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			proto.cmpval = (int)child->num.u_value;
 			break;
 		case BLOCK_FIELD_CMPREG:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			proto.cmpreg = r_str_constpool_get (&ctx->anal->constpool, child->text_value);
 			break;
 		default:
 			break;
 	})
 
+	errno = 0;
 	ut64 addr = strtoull (k, NULL, 0);
+	if (errno || proto.size == UT64_MAX
+		|| (fingerprint_size != SIZE_MAX && fingerprint_size != proto.size)
+		|| (proto.op_pos && proto.op_pos_size != proto.ninstr - 1)) { // op_pos_size > ninstr - 1 is legal but we require the format to be like this.
+		goto error;
+	}
 
-	// TODO: create bb and apply data from proto
+	RAnalBlock *block = r_anal_create_block (ctx->anal, addr, proto.size);
+	if (!block) {
+		goto error;
+	}
+	block->jump = proto.jump;
+	block->fail = proto.fail;
+	block->traced = proto.traced;
+	block->folded = proto.folded;
+	block->colorize = proto.colorize;
+	block->fingerprint = proto.fingerprint;
+	block->diff = proto.diff;
+	block->switch_op = proto.switch_op;
+	block->ninstr = proto.ninstr;
+	block->op_pos = proto.op_pos;
+	block->op_pos_size = proto.op_pos_size;
+	block->stackptr = proto.stackptr;
+	block->parent_stackptr = proto.parent_stackptr;
+	block->cmpval = proto.cmpval;
+	block->cmpreg = proto.cmpreg;
 
 	return true;
+error:
+	free (proto.fingerprint);
+	r_anal_diff_free (proto.diff);
+	r_anal_switch_op_free (proto.switch_op);
+	free (proto.op_pos);
+	return false;
 }
 
 R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser) {
@@ -411,6 +490,7 @@ R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 	}
 	key_parser_add (ctx.parser, "size", BLOCK_FIELD_SIZE);
 	key_parser_add (ctx.parser, "jump", BLOCK_FIELD_JUMP);
+	key_parser_add (ctx.parser, "fail", BLOCK_FIELD_FAIL);
 	key_parser_add (ctx.parser, "traced", BLOCK_FIELD_TRACED);
 	key_parser_add (ctx.parser, "folded", BLOCK_FIELD_FOLDED);
 	key_parser_add (ctx.parser, "colorize", BLOCK_FIELD_COLORIZE);

@@ -15,6 +15,10 @@
  *               fingerprint?:"<base64>", diff?: <RAnalDiff>, switch_op?:<RAnalSwitchOp>,
  *               ninstr:<int>, op_pos?:[<ut16>], stackptr:<int>, parent_stackptr:<int>,
  *               cmpval:<ut64>, cmpreg?:<str>}
+ *   /functions
+ *     0x<addr>={name:<str>, bits?:<int>, type:<int>, cc?:<str>, addr:<ut64>, stack:<int>, maxstack:<int>,
+ *               ninstr:<int>, folded?:<bool>, pure?:<bool>, bp_frame?:<bool>, noreturn?:<bool>,
+ *               fingerprint?:"<base64>", diff?:<RAnalDiff>, bbs:[<ut64>], imports?:[<str>]}
  *     ...
  *
  *
@@ -531,6 +535,83 @@ R_API bool r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 	return ret;
 }
 
+static void function_store(R_NONNULL Sdb *db, const char *key, RAnalFunction *function) {
+	PJ *j = pj_new ();
+	if (!j) {
+		return;
+	}
+	pj_o (j);
+
+	pj_ks (j, "name", function->name);
+	if (function->bits) {
+		pj_ki (j, "bits", function->bits);
+	}
+	pj_ki (j, "type", function->type);
+	if (function->cc) {
+		pj_ks (j, "cc", function->cc);
+	}
+	pj_kn (j, "addr", function->addr);
+	pj_ki (j, "stack", function->stack);
+	pj_ki (j, "maxstack", function->maxstack);
+	pj_ki (j, "ninstr", function->ninstr);
+	if (function->folded) {
+		pj_kb (j, "folded", true);
+	}
+	if (function->is_pure) {
+		pj_kb (j, "pure", true);
+	}
+	if (function->is_noreturn) {
+		pj_kb (j, "noreturn", true);
+	}
+	if (function->fingerprint) {
+		char *b64 = r_base64_encode_dyn ((const char *)function->fingerprint, function->fingerprint_size);
+		if (b64) {
+			pj_ks (j, "fingerprint", b64);
+			free (b64);
+		}
+	}
+	if (function->diff) {
+		pj_k (j, "diff");
+		r_serialize_anal_diff_save (j, function->diff);
+	}
+
+	pj_ka (j, "bbs");
+	RListIter *it;
+	RAnalBlock *block;
+	r_list_foreach (function->bbs, it, block) {
+		pj_n (j, block->addr);
+	}
+	pj_end (j);
+
+	if (!r_list_empty (function->imports)) {
+		pj_ka (j, "imports");
+		const char *import;
+		r_list_foreach (function->bbs, it, import) {
+			pj_s (j, import);
+		}
+		pj_end (j);
+	}
+
+	pj_end (j);
+	sdb_set (db, key, pj_string (j), 0);
+	pj_free (j);
+}
+
+R_API void r_serialize_anal_functions_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	RListIter *it;
+	RAnalFunction *function;
+	RStrBuf key;
+	r_strbuf_init (&key);
+	r_list_foreach (anal->fcns, it, function) {
+		r_strbuf_setf (&key, "0x%"PFMT64x, function->addr);
+		function_store (db, r_strbuf_get (&key), function);
+	}
+	r_strbuf_fini (&key);
+}
+
+R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err) {
+	return false;
+}
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 

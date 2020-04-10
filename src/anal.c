@@ -16,7 +16,7 @@
  *               ninstr:<int>, op_pos?:[<ut16>], stackptr:<int>, parent_stackptr:<int>,
  *               cmpval:<ut64>, cmpreg?:<str>}
  *   /functions
- *     0x<addr>={name:<str>, bits?:<int>, type:<int>, cc?:<str>, addr:<ut64>, stack:<int>, maxstack:<int>,
+ *     0x<addr>={name:<str>, bits?:<int>, type:<int>, cc?:<str>, stack:<int>, maxstack:<int>,
  *               ninstr:<int>, folded?:<bool>, pure?:<bool>, bp_frame?:<bool>, noreturn?:<bool>,
  *               fingerprint?:"<base64>", diff?:<RAnalDiff>, bbs:[<ut64>], imports?:[<str>]}
  *     ...
@@ -550,7 +550,6 @@ static void function_store(R_NONNULL Sdb *db, const char *key, RAnalFunction *fu
 	if (function->cc) {
 		pj_ks (j, "cc", function->cc);
 	}
-	pj_kn (j, "addr", function->addr);
 	pj_ki (j, "stack", function->stack);
 	pj_ki (j, "maxstack", function->maxstack);
 	pj_ki (j, "ninstr", function->ninstr);
@@ -609,14 +608,273 @@ R_API void r_serialize_anal_functions_save(R_NONNULL Sdb *db, R_NONNULL RAnal *a
 	r_strbuf_fini (&key);
 }
 
+enum {
+	FUNCTION_FIELD_NAME,
+	FUNCTION_FIELD_BITS,
+	FUNCTION_FIELD_TYPE,
+	FUNCTION_FIELD_CC,
+	FUNCTION_FIELD_STACK,
+	FUNCTION_FIELD_MAXSTACK,
+	FUNCTION_FIELD_NINSTR,
+	FUNCTION_FIELD_FOLDED,
+	FUNCTION_FIELD_PURE,
+	FUNCTION_FIELD_BP_FRAME,
+	FUNCTION_FIELD_NORETURN,
+	FUNCTION_FIELD_FINGERPRINT,
+	FUNCTION_FIELD_DIFF,
+	FUNCTION_FIELD_BBS,
+	FUNCTION_FIELD_IMPORTS
+};
+
+typedef struct {
+	RAnal *anal;
+	KeyParser *parser;
+	RSerializeAnalDiffParser diff_parser;
+} FunctionLoadCtx;
+
+static int function_load_cb(void *user, const char *k, const char *v) {
+	FunctionLoadCtx *ctx = user;
+
+	char *json_str = strdup (v);
+	if (!json_str) {
+		return true;
+	}
+	const nx_json *json = nx_json_parse_utf8 (json_str);
+	if (!json || json->type != NX_JSON_OBJECT) {
+		free (json_str);
+		return false;
+	}
+
+	RAnalFunction *function = r_anal_function_new (ctx->anal);
+	KEY_PARSER_JSON (ctx->parser, json, child, {
+		case FUNCTION_FIELD_NAME:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			if (function->name) {
+				free (function->name);
+			}
+			function->name = strdup (child->text_value);
+			break;
+		case FUNCTION_FIELD_BITS:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			function->bits = (int)child->num.s_value;
+			break;
+		case FUNCTION_FIELD_TYPE:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			function->type = (int)child->num.s_value;
+			break;
+		case FUNCTION_FIELD_CC:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			function->cc = r_str_constpool_get (&ctx->anal->constpool, child->text_value);
+			break;
+		case FUNCTION_FIELD_STACK:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			function->stack = (int)child->num.s_value;
+			break;
+		case FUNCTION_FIELD_MAXSTACK:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			function->maxstack = (int)child->num.s_value;
+			break;
+		case FUNCTION_FIELD_NINSTR:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			function->ninstr = (int)child->num.s_value;
+			break;
+		case FUNCTION_FIELD_FOLDED:
+			if (child->type != NX_JSON_BOOL) {
+				break;
+			}
+			function->folded = child->num.u_value ? true : false;
+			break;
+		case FUNCTION_FIELD_PURE:
+			if (child->type != NX_JSON_BOOL) {
+				break;
+			}
+			function->is_pure = child->num.u_value ? true : false;
+			break;
+		case FUNCTION_FIELD_BP_FRAME:
+			if (child->type != NX_JSON_BOOL) {
+				break;
+			}
+			function->bp_frame = child->num.u_value ? true : false;
+			break;
+		case FUNCTION_FIELD_NORETURN:
+			if (child->type != NX_JSON_BOOL) {
+				break;
+			}
+			function->is_noreturn = child->num.u_value ? true : false;
+			break;
+		case FUNCTION_FIELD_FINGERPRINT:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			if (function->fingerprint) {
+				free (function->fingerprint);
+				function->fingerprint = NULL;
+			}
+			function->fingerprint_size = strlen (child->text_value);
+			if (!function->fingerprint_size) {
+				break;
+			}
+			function->fingerprint = malloc (function->fingerprint_size);
+			if (function->fingerprint) {
+				function->fingerprint_size = 0;
+				break;
+			}
+			int decsz = r_base64_decode (function->fingerprint, child->text_value, function->fingerprint_size);
+			if (decsz <= 0) {
+				free (function->fingerprint);
+				function->fingerprint = NULL;
+				function->fingerprint_size = 0;
+			} else if (decsz < function->fingerprint_size) {
+				ut8 *n = realloc (function->fingerprint, (size_t)decsz);
+				if (!n) {
+					free (function->fingerprint);
+					function->fingerprint = NULL;
+					function->fingerprint_size = 0;
+				}
+				function->fingerprint = n;
+				function->fingerprint_size = (size_t)decsz;
+			}
+			break;
+		case FUNCTION_FIELD_DIFF:
+			r_anal_diff_free (function->diff);
+			function->diff = r_serialize_anal_diff_load (ctx->diff_parser, child);
+			break;
+		case FUNCTION_FIELD_BBS: {
+			if (child->type != NX_JSON_ARRAY) {
+				break;
+			}
+			nx_json *baby;
+			for (baby = child->children.first; baby; baby = baby->next) {
+				if (child->type != NX_JSON_INTEGER) {
+					continue;
+				}
+				RAnalBlock *block = r_anal_get_block_at (ctx->anal, child->num.u_value);
+				if (!block) {
+					continue;
+				}
+				r_anal_function_add_block (function, block);
+			}
+			break;
+		}
+		case FUNCTION_FIELD_IMPORTS: {
+			if (child->type != NX_JSON_ARRAY) {
+				break;
+			}
+			nx_json *baby;
+			for (baby = child->children.first; baby; baby = baby->next) {
+				if (child->type != NX_JSON_STRING) {
+					continue;
+				}
+				char *import = strdup (baby->text_value);
+				if (!import) {
+					break;
+				}
+				if (!function->imports) {
+					function->imports = r_list_newf ((RListFree)free);
+					if (!function->imports) {
+						free (import);
+						break;
+					}
+				}
+				r_list_push (function->imports, import);
+			}
+			break;
+		}
+		default:
+			break;
+	})
+	nx_json_free (json);
+	free (json_str);
+
+	if (!r_anal_add_function (ctx->anal, function)) {
+		r_anal_function_free (function);
+		return false;
+	}
+
+	return true;
+}
+
 R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err) {
-	return false;
+	BlockLoadCtx ctx = { anal, key_parser_new (), diff_parser };
+	if (!ctx.parser) {
+		SERIALIZE_ERR ("parser init failed");
+		return false;
+	}
+	key_parser_add (ctx.parser, "name", FUNCTION_FIELD_NAME);
+	key_parser_add (ctx.parser, "bits", FUNCTION_FIELD_BITS);
+	key_parser_add (ctx.parser, "type", FUNCTION_FIELD_TYPE);
+	key_parser_add (ctx.parser, "cc", FUNCTION_FIELD_CC);
+	key_parser_add (ctx.parser, "stack", FUNCTION_FIELD_STACK);
+	key_parser_add (ctx.parser, "maxstack", FUNCTION_FIELD_MAXSTACK);
+	key_parser_add (ctx.parser, "ninstr", FUNCTION_FIELD_NINSTR);
+	key_parser_add (ctx.parser, "folded", FUNCTION_FIELD_FOLDED);
+	key_parser_add (ctx.parser, "pure", FUNCTION_FIELD_PURE);
+	key_parser_add (ctx.parser, "bp_frame", FUNCTION_FIELD_BP_FRAME);
+	key_parser_add (ctx.parser, "noreturn", FUNCTION_FIELD_NORETURN);
+	key_parser_add (ctx.parser, "fingerprint", FUNCTION_FIELD_FINGERPRINT);
+	key_parser_add (ctx.parser, "diff", FUNCTION_FIELD_DIFF);
+	key_parser_add (ctx.parser, "bbs", FUNCTION_FIELD_BBS);
+	key_parser_add (ctx.parser, "imports", FUNCTION_FIELD_IMPORTS);
+	bool ret = sdb_foreach (db, function_load_cb, &ctx);
+	key_parser_free (ctx.parser);
+	if (!ret) {
+		SERIALIZE_ERR ("functions parsing failed");
+	}
+	return ret;
 }
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-
+	r_serialize_anal_blocks_save (sdb_ns (db, "blocks", true), anal);
+	r_serialize_anal_functions_save (sdb_ns (db, "functions", true), anal);
 }
 
-R_API void r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	bool ret = false;
+	RSerializeAnalDiffParser diff_parser = r_serialize_anal_diff_parser_new ();
+	if (!diff_parser) {
+		goto beach;
+	}
+	r_anal_purge (anal);
+	if (!r_serialize_anal_blocks_load (db, anal, diff_parser, err)) {
+		goto beach;
+	}
+	// All bbs have ref=1 now
+	if (!r_serialize_anal_functions_load (db, anal, diff_parser, err)) {
+		goto beach;
+	}
+	// BB's refs have increased if they are part of a function.
+	// We must subtract from each to hold our invariant again.
+	// If any block has ref=0 then, it should be deleted. But we can't do this while
+	// iterating the RBTree, otherwise this will become a segfault cacophony, so we cache them.
+	RPVector orphaned_bbs;
+	r_pvector_init (&orphaned_bbs, (RPVectorFree)r_anal_block_unref);
+	RBIter iter;
+	RAnalBlock *block;
+	r_rbtree_foreach (anal->bb_tree, iter, block, RAnalBlock, _rb) {
+		if (block->ref <= 1) {
+			r_pvector_push (&orphaned_bbs, block);
+			continue;
+		}
+		r_anal_block_unref (block);
+	}
+	r_pvector_clear (&orphaned_bbs); // unrefs all
 
+	ret = true;
+beach:
+	r_serialize_anal_diff_parser_free (diff_parser);
+	return ret;
 }

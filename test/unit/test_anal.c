@@ -8,7 +8,7 @@ bool test_anal_diff_save() {
 
 	PJ *j = pj_new ();
 	r_serialize_anal_diff_save (j, diff);
-	mu_assert_streq (pj_string (j), "{\"addr\":18446744073709551615,\"dist\":0.000000,\"size\":0}", "empty diff");
+	mu_assert_streq (pj_string (j), "{}", "empty diff");
 	pj_free (j);
 
 	diff->name = strdup (PERTURBATOR_JSON);
@@ -34,7 +34,7 @@ bool test_anal_diff_save() {
 bool test_anal_diff_load() {
 	RSerializeAnalDiffParser parser = r_serialize_anal_diff_parser_new ();
 
-	char *str = strdup ("{\"addr\":18446744073709551615,\"dist\":0.000000,\"size\":0}");
+	char *str = strdup ("{}");
 	const nx_json *json = nx_json_parse_utf8 (str);
 	RAnalDiff *diff = r_serialize_anal_diff_load (parser, json);
 	nx_json_free (json);
@@ -137,7 +137,7 @@ bool test_anal_switch_op_load() {
 Sdb *blocks_ref_db() {
 	Sdb *db = sdb_new0 ();
 	sdb_set (db, "0x539", "{\"size\":42}", 0);
-	sdb_set (db, "0x4d2", "{\"size\":32,\"jump\":4883,\"fail\":16915,\"traced\":true,\"folded\":true,\"colorize\":16711680,\"fingerprint\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=\",\"diff\":{\"addr\":54123,\"dist\":0.000000,\"size\":0},\"switch_op\":{\"addr\":49232,\"min\":3,\"max\":5,\"def\":7,\"cases\":[]},\"ninstr\":3,\"op_pos\":[4,7],\"stackptr\":43,\"parent_stackptr\":57,\"cmpval\":3735928559,\"cmpreg\":\"rax\"}", 0);
+	sdb_set (db, "0x4d2", "{\"size\":32,\"jump\":4883,\"fail\":16915,\"traced\":true,\"folded\":true,\"colorize\":16711680,\"fingerprint\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=\",\"diff\":{\"addr\":54123},\"switch_op\":{\"addr\":49232,\"min\":3,\"max\":5,\"def\":7,\"cases\":[]},\"ninstr\":3,\"op_pos\":[4,7],\"stackptr\":43,\"parent_stackptr\":57,\"cmpval\":3735928559,\"cmpreg\":\"rax\"}", 0);
 	return db;
 }
 
@@ -264,6 +264,100 @@ bool test_anal_block_load() {
 	mu_end;
 }
 
+Sdb *functions_ref_db() {
+	Sdb *db = sdb_new0 ();
+	sdb_set (db, "0x4d2", "{\"name\":\"effekt\",\"type\":1,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"pure\":true,\"diff\":{},\"bbs\":[1337]}", 0);
+	sdb_set (db, "0xbeef", "{\"name\":\"eskapist\",\"bits\":32,\"type\":16,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[]}", 0);
+	sdb_set (db, "0x539", "{\"name\":\"hirsch\",\"bits\":16,\"type\":0,\"cc\":\"fancycall\",\"stack\":42,\"maxstack\":123,\"ninstr\":13,\"folded\":true,\"bp_frame\":true,\"fingerprint\":\"AAECAwQFBgcICQoLDA0ODw==\",\"diff\":{\"addr\":4321},\"bbs\":[1337,1234],\"imports\":[\"earth\",\"rise\"]}", 0);
+	sdb_set (db, "0xdead", "{\"name\":\"agnosie\",\"bits\":32,\"type\":8,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[]}", 0);
+	sdb_set (db, "0xc0ffee", "{\"name\":\"lifnej\",\"bits\":32,\"type\":32,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[]}", 0);
+	sdb_set (db, "0x1092", "{\"name\":\"hiberno\",\"bits\":32,\"type\":2,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"diff\":{},\"bbs\":[]}", 0);
+	sdb_set (db, "0x67932", "{\"name\":\"anamnesis\",\"bits\":32,\"type\":4,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"noreturn\":true,\"diff\":{},\"bbs\":[]}", 0);
+	sdb_set (db, "0x31337", "{\"name\":\"aldebaran\",\"bits\":32,\"type\":-1,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[]}", 0);
+	return db;
+}
+
+bool test_anal_function_save() {
+	RAnal *anal = r_anal_new ();
+
+	RAnalBlock *ba = r_anal_create_block (anal, 1337, 42);
+	RAnalBlock *bb = r_anal_create_block (anal, 1234, 32);
+
+	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, r_anal_diff_new ());
+	r_anal_function_add_block (f, ba);
+	r_anal_function_add_block (f, bb);
+	f->bits = 16;
+	f->cc = r_str_constpool_get (&anal->constpool, "fancycall");
+	f->stack = 42;
+	f->maxstack = 123;
+	f->ninstr = 13;
+	f->folded = true;
+	f->fingerprint_size = 0x10;
+	f->fingerprint = malloc (f->fingerprint_size);
+	ut8 v;
+	for (v = 0; v < f->fingerprint_size; v++) {
+		f->fingerprint[v] = v;
+	}
+	f->diff->addr = 4321;
+	f->imports = r_list_newf (free);
+	r_list_push (f->imports, strdup ("earth"));
+	r_list_push (f->imports, strdup ("rise"));
+
+	f = r_anal_create_function (anal, "effekt", 1234, R_ANAL_FCN_TYPE_FCN, NULL);
+	r_anal_function_add_block (f, ba);
+	f->is_pure = true;
+	f->bits = 0;
+
+	f = r_anal_create_function (anal, "hiberno", 4242, R_ANAL_FCN_TYPE_LOC, NULL);
+	f->bp_frame = false;
+
+	f = r_anal_create_function (anal, "anamnesis", 424242, R_ANAL_FCN_TYPE_SYM, NULL);
+	f->is_noreturn = true;
+
+	r_anal_create_function (anal, "agnosie", 0xdead, R_ANAL_FCN_TYPE_IMP, NULL);
+	r_anal_create_function (anal, "eskapist", 0xbeef, R_ANAL_FCN_TYPE_INT, NULL);
+	r_anal_create_function (anal, "lifnej", 0xc0ffee, R_ANAL_FCN_TYPE_ROOT, NULL);
+	r_anal_create_function (anal, "aldebaran", 0x31337, R_ANAL_FCN_TYPE_ANY, NULL);
+
+	r_anal_block_unref (ba);
+	r_anal_block_unref (bb);
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_functions_save (db, anal);
+
+	Sdb *expected = functions_ref_db ();
+	assert_sdb_eq (db, expected, "functions save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_function_load() {
+	RAnal *anal = r_anal_new ();
+
+	Sdb *db = functions_ref_db ();
+	RSerializeAnalDiffParser diff_parser = r_serialize_anal_diff_parser_new ();
+
+	RAnalBlock *ba = r_anal_create_block (anal, 1337, 42);
+	RAnalBlock *bb = r_anal_create_block (anal, 1234, 32);
+
+	bool succ = r_serialize_anal_functions_load (db, anal, diff_parser, NULL);
+	mu_assert ("load success", succ);
+
+	mu_assert_eq (ba->ref, 3, "ba refs");
+	mu_assert_eq (bb->ref, 2, "bb refs");
+	r_anal_block_unref (ba);
+	r_anal_block_unref (bb);
+
+	// TODO: check the loaded functions
+
+	sdb_free (db);
+	r_anal_free (anal);
+	r_serialize_anal_diff_parser_free (diff_parser);
+	mu_end;
+}
+
 int all_tests() {
 	mu_run_test (test_anal_diff_save);
 	mu_run_test (test_anal_diff_load);
@@ -271,6 +365,8 @@ int all_tests() {
 	mu_run_test (test_anal_switch_op_load);
 	mu_run_test (test_anal_block_save);
 	mu_run_test (test_anal_block_load);
+	mu_run_test (test_anal_function_save);
+	mu_run_test (test_anal_function_load);
 	return tests_passed != tests_run;
 }
 

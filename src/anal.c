@@ -43,12 +43,18 @@ R_API void r_serialize_anal_diff_save(R_NONNULL PJ *j, R_NONNULL RAnalDiff *diff
 		pj_ks (j, "type", "u");
 		break;
 	}
-	pj_kn (j, "addr", diff->addr);
-	pj_kd (j, "dist", diff->dist);
+	if (diff->addr != UT64_MAX) {
+		pj_kn (j, "addr", diff->addr);
+	}
+	if (diff->dist != 0.0) {
+		pj_kd (j, "dist", diff->dist);
+	}
 	if (diff->name) {
 		pj_ks (j, "name", diff->name);
 	}
-	pj_kn (j, "size", (ut64)diff->size);
+	if (diff->size) {
+		pj_kn (j, "size", (ut64)diff->size);
+	}
 	pj_end (j);
 }
 
@@ -556,6 +562,9 @@ static void function_store(R_NONNULL Sdb *db, const char *key, RAnalFunction *fu
 	if (function->folded) {
 		pj_kb (j, "folded", true);
 	}
+	if (function->bp_frame) {
+		pj_kb (j, "bp_frame", true);
+	}
 	if (function->is_pure) {
 		pj_kb (j, "pure", true);
 	}
@@ -585,7 +594,7 @@ static void function_store(R_NONNULL Sdb *db, const char *key, RAnalFunction *fu
 	if (!r_list_empty (function->imports)) {
 		pj_ka (j, "imports");
 		const char *import;
-		r_list_foreach (function->bbs, it, import) {
+		r_list_foreach (function->imports, it, import) {
 			pj_s (j, import);
 		}
 		pj_end (j);
@@ -759,10 +768,10 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 			}
 			nx_json *baby;
 			for (baby = child->children.first; baby; baby = baby->next) {
-				if (child->type != NX_JSON_INTEGER) {
+				if (baby->type != NX_JSON_INTEGER) {
 					continue;
 				}
-				RAnalBlock *block = r_anal_get_block_at (ctx->anal, child->num.u_value);
+				RAnalBlock *block = r_anal_get_block_at (ctx->anal, baby->num.u_value);
 				if (!block) {
 					continue;
 				}
@@ -776,7 +785,7 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 			}
 			nx_json *baby;
 			for (baby = child->children.first; baby; baby = baby->next) {
-				if (child->type != NX_JSON_STRING) {
+				if (baby->type != NX_JSON_STRING) {
 					continue;
 				}
 				char *import = strdup (baby->text_value);
@@ -800,7 +809,9 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 	nx_json_free (json);
 	free (json_str);
 
-	if (!r_anal_add_function (ctx->anal, function)) {
+	errno = 0;
+	function->addr = strtoull (k, NULL, 0);
+	if (errno || !function->name || !r_anal_add_function (ctx->anal, function)) {
 		r_anal_function_free (function);
 		return false;
 	}

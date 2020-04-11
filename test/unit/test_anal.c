@@ -350,7 +350,107 @@ bool test_anal_function_load() {
 	r_anal_block_unref (ba);
 	r_anal_block_unref (bb);
 
-	// TODO: check the loaded functions
+	mu_assert_eq (r_list_length (anal->fcns), 8, "loaded fcn count");
+
+	RAnalFunction *f = r_anal_get_function_at (anal, 1337);
+	mu_assert_notnull (f, "function");
+	mu_assert_streq (f->name, "hirsch", "name");
+	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_NULL, "type");
+	mu_assert_eq (r_list_length (f->bbs), 2, "bbs count");
+	mu_assert ("bb", r_list_contains (f->bbs, ba));
+	mu_assert ("bb", r_list_contains (f->bbs, bb));
+	mu_assert_eq (f->bits, 16, "bits");
+	mu_assert_ptreq (f->cc, r_str_constpool_get (&anal->constpool, "fancycall"), "cc");
+	mu_assert_eq (f->stack, 42, "stack");
+	mu_assert_eq (f->maxstack, 123, "maxstack");
+	mu_assert_eq (f->ninstr, 13, "ninstr");
+	mu_assert ("folded", f->folded);
+	mu_assert ("pure", !f->is_pure);
+	mu_assert ("noreturn", !f->is_noreturn);
+	mu_assert ("bp_frame", f->bp_frame);
+	mu_assert_eq (f->fingerprint_size, 0x10, "fingerprint size");
+	mu_assert_memeq (f->fingerprint, (const ut8 *)"\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f", 0x10, "fingerprint");
+	mu_assert_notnull (f->diff, "diff");
+	mu_assert_eq (f->diff->addr, 4321, "diff addr"); // diff is covered in detail by its own tests
+	mu_assert_notnull (f->imports, "imports");
+	mu_assert_eq (r_list_length (f->imports), 2, "imports count");
+	mu_assert_streq (r_list_get_n (f->imports, 0), "earth", "import");
+	mu_assert_streq (r_list_get_n (f->imports, 1), "rise", "import");
+
+	f = r_anal_get_function_at (anal, 1234);
+	mu_assert_notnull (f, "function");
+	mu_assert_streq (f->name, "effekt", "name");
+	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_FCN, "type");
+	mu_assert_eq (r_list_length (f->bbs), 1, "bbs count");
+	mu_assert ("bb", r_list_contains (f->bbs, ba));
+	mu_assert_eq (f->bits, 0, "bits");
+	mu_assert_null (f->cc, "cc");
+	mu_assert_eq (f->stack, 0, "stack");
+	mu_assert_eq (f->maxstack, 0, "maxstack");
+	mu_assert_eq (f->ninstr, 0, "ninstr");
+	mu_assert ("folded", !f->folded);
+	mu_assert ("pure", f->is_pure);
+	mu_assert ("noreturn", !f->is_noreturn);
+	mu_assert ("bp_frame", f->bp_frame);
+	mu_assert_null (f->fingerprint, "fingerprint");
+	mu_assert_notnull (f->diff, "diff");
+	mu_assert_null (f->imports, "imports");
+
+	f = r_anal_get_function_at (anal, 4242);
+	mu_assert_notnull (f, "function");
+	mu_assert_streq (f->name, "hiberno", "name");
+	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_LOC, "type");
+	mu_assert_eq (r_list_length (f->bbs), 0, "bbs count");
+	mu_assert_eq (f->bits, 32, "bits");
+	mu_assert_null (f->cc, "cc");
+	mu_assert_eq (f->stack, 0, "stack");
+	mu_assert_eq (f->maxstack, 0, "maxstack");
+	mu_assert_eq (f->ninstr, 0, "ninstr");
+	mu_assert ("folded", !f->folded);
+	mu_assert ("pure", !f->is_pure);
+	mu_assert ("noreturn", !f->is_noreturn);
+	mu_assert ("bp_frame", !f->bp_frame);
+	mu_assert_null (f->fingerprint, "fingerprint");
+	mu_assert_notnull (f->diff, "diff");
+	mu_assert_null (f->imports, "imports");
+
+	f = r_anal_get_function_at (anal, 424242);
+	mu_assert_notnull (f, "function");
+	mu_assert_streq (f->name, "anamnesis", "name");
+	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_SYM, "type");
+	mu_assert_eq (r_list_length (f->bbs), 0, "bbs count");
+	mu_assert_eq (f->bits, 32, "bits");
+	mu_assert_null (f->cc, "cc");
+	mu_assert_eq (f->stack, 0, "stack");
+	mu_assert_eq (f->maxstack, 0, "maxstack");
+	mu_assert_eq (f->ninstr, 0, "ninstr");
+	mu_assert ("folded", !f->folded);
+	mu_assert ("pure", !f->is_pure);
+	mu_assert ("noreturn", f->is_noreturn);
+	mu_assert ("bp_frame", f->bp_frame);
+	mu_assert_null (f->fingerprint, "fingerprint");
+	mu_assert_notnull (f->diff, "diff");
+	mu_assert_null (f->imports, "imports");
+
+	f = r_anal_get_function_at (anal, 0xdead);
+	mu_assert_notnull (f, "function");
+	mu_assert_streq (f->name, "agnosie", "name");
+	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_IMP, "type");
+
+	f = r_anal_get_function_at (anal, 0xbeef);
+	mu_assert_notnull (f, "function");
+	mu_assert_streq (f->name, "eskapist", "name");
+	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_INT, "type");
+
+	f = r_anal_get_function_at (anal, 0xc0ffee);
+	mu_assert_notnull (f, "function");
+	mu_assert_streq (f->name, "lifnej", "name");
+	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_ROOT, "type");
+
+	f = r_anal_get_function_at (anal, 0x31337);
+	mu_assert_notnull (f, "function");
+	mu_assert_streq (f->name, "aldebaran", "name");
+	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_ANY, "type");
 
 	sdb_free (db);
 	r_anal_free (anal);

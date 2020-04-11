@@ -655,6 +655,9 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 	}
 
 	RAnalFunction *function = r_anal_function_new (ctx->anal);
+	function->bits = 0; // should be 0 if not specified
+	function->bp_frame = false; // should be false if not specified
+	bool noreturn = false;
 	KEY_PARSER_JSON (ctx->parser, json, child, {
 		case FUNCTION_FIELD_NAME:
 			if (child->type != NX_JSON_STRING) {
@@ -723,7 +726,7 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 			if (child->type != NX_JSON_BOOL) {
 				break;
 			}
-			function->is_noreturn = child->num.u_value ? true : false;
+			noreturn = child->num.u_value ? true : false;
 			break;
 		case FUNCTION_FIELD_FINGERPRINT:
 			if (child->type != NX_JSON_STRING) {
@@ -738,7 +741,7 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 				break;
 			}
 			function->fingerprint = malloc (function->fingerprint_size);
-			if (function->fingerprint) {
+			if (!function->fingerprint) {
 				function->fingerprint_size = 0;
 				break;
 			}
@@ -815,6 +818,7 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 		r_anal_function_free (function);
 		return false;
 	}
+	function->is_noreturn = noreturn; // Can't set directly, r_anal_add_function() overwrites it
 
 	return true;
 }

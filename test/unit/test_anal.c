@@ -134,6 +134,7 @@ bool test_anal_switch_op_load() {
 }
 
 bool test_anal_hint_save() {
+	PJ *j = pj_new ();
 	RAnalHint *hint = malloc(sizeof(*hint));
 	if (!hint) {
 		return false;
@@ -160,7 +161,8 @@ bool test_anal_hint_save() {
 	hint->nword = 0x69;
 	hint->stackframe = 0x1337;
 
-	r_serialize_anal_hint_save (db, hint);
+	r_serialize_anal_hint_save (j, hint);
+	pj_free (j);
 
 	// Todo; Fix the string to match.
 	mu_assert_streq (pj_string (j), "{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[]}", "empty switch");

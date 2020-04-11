@@ -2,6 +2,7 @@
 #include "minunit.h"
 #include "test_utils.h"
 
+
 static Sdb *ref() {
 	Sdb *db = sdb_new0 ();
 	sdb_set (db, "testkey", "testval", 0);

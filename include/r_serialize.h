@@ -45,6 +45,9 @@ R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
  */
 R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser);
 
+R_API void r_serialize_anal_hint_save(R_NONNULL PJ *j, R_NONNULL RAnalHint *hint);
+R_API void r_serialize_anal_hint_load(R_NONNULL Sdb *db, R_NONNULL RAnalHint *hint);
+
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API void r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 

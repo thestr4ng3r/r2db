@@ -3,6 +3,7 @@
 #include <r_serialize.h>
 #include <nxjson.h>
 #include <r_anal.h>
+
 #include "serialize_util.h"
 
 /*
@@ -428,31 +429,64 @@ R_API void r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 	key_parser_free (ctx.parser);
 }
 
-R_API bool r_serialize_anal_hints_save(ut64 addr, const RVector/*<const RAnalAddrHintRecord>*/ *records, Sdb *db) {
-	RAnalAddrHintRecord *r;
-	printf("%p\n", records->a);
-	r_vector_foreach (records, r) {
-		printf ("Anal for each!\n");
-		// Do something with it
-		printf ("[0x%llx] Type %d : 0x%llx\n", addr, r->type, r->val);
- 	}
-	/* No need to store each value seperately, it is always stored in the same union. (endiannes issues? Todo; check) */
+R_API void r_serialize_anal_hint_save(R_NONNULL PJ *j, R_NONNULL RAnalHint *hint) {
+	pj_o (j);
+	pj_kn (j, "addr", hint->addr);
+	pj_kn (j, "ptr", hint->ptr);
+	pj_kn (j, "val", hint->val);
+	pj_kn (j, "jump", hint->jump);
+	pj_kn (j, "fail", hint->fail);
+	pj_kn (j, "ret", hint->ret);
+
+	pj_ks (j, "arch", hint->arch);
+	pj_ks (j, "opcode", hint->opcode);
+	pj_ks (j, "syntax", hint->syntax);
+	pj_ks (j, "esil", hint->esil);
+	pj_ks (j, "offset", hint->offset);
+
+	pj_kn (j, "type", (ut32)hint->type); // I expect this to go wrong when switching to a different endian system with project files.
+	pj_kn (j, "size", hint->size);
+	pj_ki (j, "bits", hint->bits);
+	pj_ki (j, "new_bits", hint->new_bits);
+	pj_ki (j, "immbase", hint->immbase);
+	pj_kb (j, "high", hint->high);
+	pj_ki (j, "nword", hint->nword);
+	pj_kn (j, "stackframe", hint->stackframe);
+
+	pj_end (j);
+}
+
+
+R_API void r_serialize_anal_hint_load(R_NONNULL Sdb *db, R_NONNULL RAnalHint *hint) {
+
+}
+
+bool r_serialize_anal_hints_save_cb(ut64 addr, const RVector/*<const RAnalAddrHintRecord>*/ *records, PJ *j) {
+	RAnalAddrHintRecord *record;
+	pj_o (j);
+	r_vector_foreach (records, record) {
+		// Todo; Covnert record to hint
+		RAnalHint *hint;
+		r_serialize_anal_hint_save (j, hint);
+	}
+	pj_end (j);
 	return true;
 }
 
 
-
-R_API void r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-	r_anal_hint_clear (anal); // First ensure nothing is set.
-
-	// Todo;
-}
-
-
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-	r_anal_addr_hints_foreach (anal, (RAnalAddrHintRecordsCb)r_serialize_anal_hints_save, (Sdb*)db);
+	PJ *j = pj_new ();
+	if (!j) {
+		return;
+	}
+
+	r_anal_addr_hints_foreach (anal, (RAnalAddrHintRecordsCb)r_serialize_anal_hints_save_cb, (PJ*)j);
+
+	sdb_set (db, "anal_hints", pj_string (j), 0);
+	pj_free (j);
 }
+
 
 R_API void r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
-	r_serialize_anal_hints_load(db, anal);
+	// Todo; For each within the db load.
 }

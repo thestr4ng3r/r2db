@@ -133,11 +133,53 @@ bool test_anal_switch_op_load() {
 	mu_end;
 }
 
+bool test_anal_hint_save() {
+	RAnalHint *hint = malloc(sizeof(*hint));
+	if (!hint) {
+		return false;
+	}
+
+	hint->addr = 0x00;
+	hint->ptr = 0x01;
+	hint->val = 0;
+	hint->jump = 0x00;
+	hint->fail = 0x0;
+	hint->ret = 0x1337;
+	hint->arch = "arm";
+	hint->opcode = "adr x18, 0x24601";
+	hint->syntax = NULL;
+	hint->esil = "148993,x18,=";
+	hint->offset = 0;
+
+	hint->type = 1;
+	hint->size = 10;
+	hint->bits = 32;
+	hint->new_bits = 0;
+	hint->immbase = 0x42;
+	hint->high = true; // highlight hint
+	hint->nword = 0x69;
+	hint->stackframe = 0x1337;
+
+	r_serialize_anal_hint_save (db, hint);
+
+	// Todo; Fix the string to match.
+	mu_assert_streq (pj_string (j), "{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[]}", "empty switch");
+
+	mu_end;
+}
+
+bool test_anal_hint_load() {
+	// Todo;
+	mu_end;
+}
+
 int all_tests() {
 	mu_run_test (test_anal_diff_save);
 	mu_run_test (test_anal_diff_load);
 	mu_run_test (test_anal_switch_op_save);
 	mu_run_test (test_anal_switch_op_load);
+	mu_run_test (test_anal_hint_save);
+	mu_run_test (test_anal_hint_load);
 	return tests_passed != tests_run;
 }
 

@@ -480,7 +480,8 @@ R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 		return;
 	}
 
-	r_anal_addr_hints_foreach (anal, (RAnalAddrHintRecordsCb)r_serialize_anal_hints_save_cb, (PJ*)j);
+	// Todo; Uncomment and link to r_anal
+	// r_anal_addr_hints_foreach (anal, (RAnalAddrHintRecordsCb)r_serialize_anal_hints_save_cb, (PJ*)j);
 
 	sdb_set (db, "anal_hints", pj_string (j), 0);
 	pj_free (j);

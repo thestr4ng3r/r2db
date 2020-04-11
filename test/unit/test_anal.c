@@ -165,7 +165,7 @@ bool test_anal_hint_save() {
 	pj_free (j);
 
 	// Todo; Fix the string to match.
-	mu_assert_streq (pj_string (j), "{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[]}", "empty switch");
+	mu_assert_streq (pj_string (j), "{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[]}", "anal hint serialisation");
 
 	mu_end;
 }

@@ -38,4 +38,14 @@ static inline void key_parser_add(KeyParser *parser, const char *key, int val) {
 		} \
 	}
 
+#define SUB_DO(ns, call, rip) \
+	subdb = sdb_ns (db, ns, false); \
+	if (!subdb) { \
+		SERIALIZE_ERR ("missing " ns " namespace"); \
+		rip \
+	} \
+	if (!(call)) { \
+		rip \
+	} \
+
 #endif //R2DB_SERIALIZE_UTIL_H

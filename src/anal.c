@@ -863,14 +863,15 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 	if (!diff_parser) {
 		goto beach;
 	}
+
 	r_anal_purge (anal);
-	if (!r_serialize_anal_blocks_load (db, anal, diff_parser, err)) {
-		goto beach;
-	}
+
+	Sdb *subdb;
+#define SUB(ns, call) SUB_DO(ns, call, goto beach;)
+
+	SUB ("blocks", r_serialize_anal_blocks_load (subdb, anal, diff_parser, err));
 	// All bbs have ref=1 now
-	if (!r_serialize_anal_functions_load (db, anal, diff_parser, err)) {
-		goto beach;
-	}
+	SUB ("functions", r_serialize_anal_functions_load (subdb, anal, diff_parser, err));
 	// BB's refs have increased if they are part of a function.
 	// We must subtract from each to hold our invariant again.
 	// If any block has ref=0 then, it should be deleted. But we can't do this while

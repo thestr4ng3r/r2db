@@ -3,6 +3,8 @@
 #include "minunit.h"
 #include "test_utils.h"
 
+#include "test_anal_block_invars.inl"
+
 bool test_anal_diff_save() {
 	RAnalDiff *diff = r_anal_diff_new ();
 
@@ -458,6 +460,71 @@ bool test_anal_function_load() {
 	mu_end;
 }
 
+Sdb *anal_ref_db() {
+	Sdb *db = sdb_new0 ();
+
+	Sdb *blocks = sdb_ns (db, "blocks", true);
+	sdb_set (blocks, "0x4d2", "{\"size\":32}", 0);
+	sdb_set (blocks, "0x539", "{\"size\":42}", 0);
+
+	Sdb *functions = sdb_ns (db, "functions", true);
+	sdb_set (functions, "0x4d2", "{\"name\":\"effekt\",\"bits\":32,\"type\":1,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[1337]}", 0);
+	sdb_set (functions, "0x539", "{\"name\":\"hirsch\",\"bits\":32,\"type\":0,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[1337,1234]}", 0);
+
+	return db;
+}
+
+bool test_anal_save() {
+	RAnal *anal = r_anal_new ();
+
+	RAnalBlock *ba = r_anal_create_block (anal, 1337, 42);
+	RAnalBlock *bb = r_anal_create_block (anal, 1234, 32);
+
+	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, r_anal_diff_new ());
+	r_anal_function_add_block (f, ba);
+	r_anal_function_add_block (f, bb);
+
+	f = r_anal_create_function (anal, "effekt", 1234, R_ANAL_FCN_TYPE_FCN, NULL);
+	r_anal_function_add_block (f, ba);
+
+	r_anal_block_unref (ba);
+	r_anal_block_unref (bb);
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_save (db, anal);
+
+	Sdb *expected = anal_ref_db ();
+	assert_sdb_eq (db, expected, "anal save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_load() {
+	RAnal *anal = r_anal_new ();
+
+	Sdb *db = anal_ref_db ();
+	bool succ = r_serialize_anal_load (db, anal, NULL);
+	sdb_free (db);
+	mu_assert ("load success", succ);
+
+	size_t blocks_count = 0;
+	RBIter iter;
+	RAnalBlock *block;
+	r_rbtree_foreach (anal->bb_tree, iter, block, RAnalBlock, _rb) {
+		(void)block;
+		blocks_count++;
+	}
+
+	// tested in detail by dedicated tests
+	mu_assert_eq (blocks_count, 2, "blocks loaded");
+	mu_assert_eq (r_list_length (anal->fcns), 2, "functions loaded");
+
+	r_anal_free (anal);
+	mu_end;
+}
+
 int all_tests() {
 	mu_run_test (test_anal_diff_save);
 	mu_run_test (test_anal_diff_load);
@@ -467,6 +534,8 @@ int all_tests() {
 	mu_run_test (test_anal_block_load);
 	mu_run_test (test_anal_function_save);
 	mu_run_test (test_anal_function_load);
+	mu_run_test (test_anal_save);
+	mu_run_test (test_anal_load);
 	return tests_passed != tests_run;
 }
 

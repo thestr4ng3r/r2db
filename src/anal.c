@@ -19,8 +19,8 @@
  *     0x<addr>={name:<str>, bits?:<int>, type:<int>, cc?:<str>, stack:<int>, maxstack:<int>,
  *               ninstr:<int>, folded?:<bool>, pure?:<bool>, bp_frame?:<bool>, noreturn?:<bool>,
  *               fingerprint?:"<base64>", diff?:<RAnalDiff>, bbs:[<ut64>], imports?:[<str>]}
- *     ...
- *
+ *   /xrefs
+ *     0x<addr>=[{to:<ut64>, type?:"c"|"C"|"d"|"s"}]
  *
  * RAnalDiff JSON:
  * {type?:"m"|"u", addr:<ut64>, dist:<double>, name?:<str>, size:<ut32>}
@@ -852,7 +852,112 @@ R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *a
 	return ret;
 }
 
+static bool store_xref_cb(void *j, const ut64 k, const void *v) {
+	const RAnalRef *xref = v;
+	pj_o (j);
+	pj_kn (j, "to", k);
+	if (xref->type != R_ANAL_REF_TYPE_NULL) {
+		char type[2] = { xref->type, '\0' };
+		pj_ks (j, "type", type);
+	}
+	pj_end (j);
+	return true;
+}
+
+static bool store_xrefs_list_cb(void *db, const ut64 k, const void *v) {
+	char key[0x20];
+	if (snprintf (key, sizeof (key), "0x%"PFMT64x, k) < 0) {
+		return false;
+	}
+	PJ *j = pj_new ();
+	if (!j) {
+		return false;
+	}
+	pj_a (j);
+	HtUP *ht = (HtUP *)v;
+	ht_up_foreach (ht, store_xref_cb, j);
+	pj_end (j);
+	sdb_set (db, key, pj_string (j), 0);
+	pj_free (j);
+	return true;
+}
+
+R_API void r_serialize_anal_xrefs_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	ht_up_foreach (anal->dict_refs, store_xrefs_list_cb, db);
+}
+
+static int xrefs_load_cb(void *user, const char *k, const char *v) {
+	RAnal *anal = user;
+
+	errno = 0;
+	ut64 from = strtoull (k, NULL, 0);;
+	if (errno) {
+		return false;
+	}
+
+	char *json_str = strdup (v);
+	if (!json_str) {
+		return true;
+	}
+	const nx_json *json = nx_json_parse_utf8 (json_str);
+	if (!json || json->type != NX_JSON_ARRAY) {
+		free (json_str);
+		return false;
+	}
+
+	const nx_json *child;
+	for (child = json->children.first; child; child = child->next) {
+		if (child->type != NX_JSON_OBJECT) {
+			goto error;
+		}
+		const nx_json *baby = nx_json_get (child, "to");
+		if (!baby || baby->type != NX_JSON_INTEGER) {
+			goto error;
+		}
+		ut64 to = baby->num.u_value;
+
+		RAnalRefType type = R_ANAL_REF_TYPE_NULL;
+		baby = nx_json_get (child, "type");
+		if (baby) {
+			// must be a 1-char string
+			if (baby->type != NX_JSON_STRING || !baby->text_value[0] || baby->text_value[1]) {
+				goto error;
+			}
+			switch (baby->text_value[0]) {
+			case R_ANAL_REF_TYPE_CODE:
+			case R_ANAL_REF_TYPE_CALL:
+			case R_ANAL_REF_TYPE_DATA:
+			case R_ANAL_REF_TYPE_STRING:
+				type = baby->text_value[0];
+				break;
+			default:
+				goto error;
+			}
+		}
+
+		r_anal_xrefs_set (anal, from, to, type);
+	}
+
+	nx_json_free (json);
+	free (json_str);
+
+	return true;
+error:
+	nx_json_free (json);
+	free (json_str);
+	return false;
+}
+
+R_API bool r_serialize_anal_xrefs_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	bool ret = sdb_foreach (db, xrefs_load_cb, anal);
+	if (!ret && err) {
+		SERIALIZE_ERR ("xrefs parsing failed");
+	}
+	return ret;
+}
+
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	r_serialize_anal_xrefs_save (sdb_ns (db, "xrefs", true), anal);
 	r_serialize_anal_blocks_save (sdb_ns (db, "blocks", true), anal);
 	r_serialize_anal_functions_save (sdb_ns (db, "functions", true), anal);
 }
@@ -868,6 +973,7 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 
 	Sdb *subdb;
 #define SUB(ns, call) SUB_DO(ns, call, goto beach;)
+	SUB ("xrefs", r_serialize_anal_xrefs_load (subdb, anal, err));
 
 	SUB ("blocks", r_serialize_anal_blocks_load (subdb, anal, diff_parser, err));
 	// All bbs have ref=1 now

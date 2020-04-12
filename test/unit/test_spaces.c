@@ -70,20 +70,20 @@ bool test_spaces_load_noname_nostack(void) {
 	int i = 0;
 	r_rbtree_foreach (spaces->spaces, rbiter, space, RSpace, rb) {
 		switch (i) {
-			case 0:
-				mu_assert_streq (space->name, PERTURBATOR, "loaded spaces");
-				break;
-			case 1:
-				mu_assert_streq (space->name, "a", "loaded spaces");
-				break;
-			case 2:
-				mu_assert_streq (space->name, "b", "loaded spaces");
-				break;
-			case 3:
-				mu_assert_streq (space->name, "c", "loaded spaces");
-				break;
-			default:
-				break;	
+		case 0:
+			mu_assert_streq (space->name, PERTURBATOR, "loaded spaces");
+			break;
+		case 1:
+			mu_assert_streq (space->name, "a", "loaded spaces");
+			break;
+		case 2:
+			mu_assert_streq (space->name, "b", "loaded spaces");
+			break;
+		case 3:
+			mu_assert_streq (space->name, "c", "loaded spaces");
+			break;
+		default:
+			break;
 		}
 		i++;
 	}
@@ -122,20 +122,20 @@ bool test_spaces_load_name_stack(void) {
 	int i = 0;
 	r_rbtree_foreach (spaces->spaces, rbiter, space, RSpace, rb) {
 		switch (i) {
-			case 0:
-				mu_assert_streq (space->name, PERTURBATOR, "loaded spaces");
-				break;
-			case 1:
-				mu_assert_streq (space->name, "a", "loaded spaces");
-				break;
-			case 2:
-				mu_assert_streq (space->name, "b", "loaded spaces");
-				break;
-			case 3:
-				mu_assert_streq (space->name, "c", "loaded spaces");
-				break;
-			default:
-				break;	
+		case 0:
+			mu_assert_streq (space->name, PERTURBATOR, "loaded spaces");
+			break;
+		case 1:
+			mu_assert_streq (space->name, "a", "loaded spaces");
+			break;
+		case 2:
+			mu_assert_streq (space->name, "b", "loaded spaces");
+			break;
+		case 3:
+			mu_assert_streq (space->name, "c", "loaded spaces");
+			break;
+		default:
+			break;
 		}
 		i++;
 	}

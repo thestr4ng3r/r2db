@@ -38,7 +38,7 @@ jobs:
       - name: Unit Tests
         run: |
           cd build
-          make test
+          CTEST_OUTPUT_ON_FAILURE=1 make test
       - name: R2R Tests
         run: |
           cd test

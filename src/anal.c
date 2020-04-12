@@ -950,7 +950,7 @@ error:
 
 R_API bool r_serialize_anal_xrefs_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
 	bool ret = sdb_foreach (db, xrefs_load_cb, anal);
-	if (!ret && err) {
+	if (!ret) {
 		SERIALIZE_ERR ("xrefs parsing failed");
 	}
 	return ret;

@@ -460,6 +460,90 @@ bool test_anal_function_load() {
 	mu_end;
 }
 
+Sdb *xrefs_ref_db() {
+	Sdb *db = sdb_new0 ();
+	sdb_set (db, "0x29a", "[{\"to\":333,\"type\":\"s\"}]", 0);
+	sdb_set (db, "0x1337", "[{\"to\":4242},{\"to\":4243,\"type\":\"c\"}]", 0);
+	sdb_set (db, "0x2a", "[{\"to\":4321,\"type\":\"d\"}]", 0);
+	sdb_set (db, "0x4d2", "[{\"to\":4243,\"type\":\"C\"}]", 0);
+	return db;
+}
+
+bool test_anal_xrefs_save() {
+	RAnal *anal = r_anal_new ();
+
+	r_anal_xrefs_set (anal, 0x1337, 4242, R_ANAL_REF_TYPE_NULL);
+	r_anal_xrefs_set (anal, 0x1337, 4243, R_ANAL_REF_TYPE_CODE);
+	r_anal_xrefs_set (anal, 1234, 4243, R_ANAL_REF_TYPE_CALL);
+	r_anal_xrefs_set (anal, 42, 4321, R_ANAL_REF_TYPE_DATA);
+	r_anal_xrefs_set (anal, 666, 333, R_ANAL_REF_TYPE_STRING);
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_xrefs_save (db, anal);
+
+	Sdb *expected = xrefs_ref_db ();
+	assert_sdb_eq (db, expected, "xrefs save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_xrefs_load() {
+	RAnal *anal = r_anal_new ();
+
+	Sdb *db = xrefs_ref_db ();
+
+	bool succ = r_serialize_anal_xrefs_load (db, anal, NULL);
+	mu_assert ("load success", succ);
+	mu_assert_eq (r_anal_xrefs_count (anal), 5, "xrefs count");
+
+	RList *xrefs = r_anal_xrefs_get_from (anal, 0x1337);
+	mu_assert_eq (r_list_length (xrefs), 2, "xrefs from count");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->addr, 4242, "xref to");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->at, 0x1337, "xref addr");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->type, R_ANAL_REF_TYPE_NULL, "xref type");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 1))->addr, 4243, "xref to");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 1))->at, 0x1337, "xref addr");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 1))->type, R_ANAL_REF_TYPE_CODE, "xref type");
+	r_list_free (xrefs);
+
+	xrefs = r_anal_xrefs_get_from (anal, 1234);
+	mu_assert_eq (r_list_length (xrefs), 1, "xrefs from count");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->addr, 4243, "xref to");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->at, 1234, "xref addr");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->type, R_ANAL_REF_TYPE_CALL, "xref type");
+	r_list_free (xrefs);
+
+	xrefs = r_anal_xrefs_get_from (anal, 42);
+	mu_assert_eq (r_list_length (xrefs), 1, "xrefs from count");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->addr, 4321, "xref to");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->at, 42, "xref addr");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->type, R_ANAL_REF_TYPE_DATA, "xref type");
+	r_list_free (xrefs);
+
+	xrefs = r_anal_xrefs_get_from (anal, 666);
+	mu_assert_eq (r_list_length (xrefs), 1, "xrefs from count");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->addr, 333, "xref to");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->at, 666, "xref addr");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->type, R_ANAL_REF_TYPE_STRING, "xref type");
+	r_list_free (xrefs);
+
+	xrefs = r_anal_xrefs_get (anal, 4243);
+	mu_assert_eq (r_list_length (xrefs), 2, "xrefs to count");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->addr, 1234, "xref to");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->at, 4243, "xref addr");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 0))->type, R_ANAL_REF_TYPE_CALL, "xref type");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 1))->addr, 0x1337, "xref to");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 1))->at, 4243, "xref addr");
+	mu_assert_eq (((RAnalRef *)r_list_get_n (xrefs, 1))->type, R_ANAL_REF_TYPE_CODE, "xref type");
+	r_list_free (xrefs);
+
+	sdb_free (db);
+	r_anal_free (anal);
+	mu_end;
+}
+
 Sdb *anal_ref_db() {
 	Sdb *db = sdb_new0 ();
 
@@ -470,6 +554,10 @@ Sdb *anal_ref_db() {
 	Sdb *functions = sdb_ns (db, "functions", true);
 	sdb_set (functions, "0x4d2", "{\"name\":\"effekt\",\"bits\":32,\"type\":1,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[1337]}", 0);
 	sdb_set (functions, "0x539", "{\"name\":\"hirsch\",\"bits\":32,\"type\":0,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[1337,1234]}", 0);
+
+	Sdb *xrefs = sdb_ns (db, "xrefs", true);
+	sdb_set (xrefs, "0x42", "[{\"to\":1337,\"type\":\"C\"}]", 0);
+	sdb_set (xrefs, "0x539", "[{\"to\":12648430,\"type\":\"d\"}]", 0);
 
 	return db;
 }
@@ -489,6 +577,9 @@ bool test_anal_save() {
 
 	r_anal_block_unref (ba);
 	r_anal_block_unref (bb);
+
+	r_anal_xrefs_set (anal, 0x42, 1337, R_ANAL_REF_TYPE_CALL);
+	r_anal_xrefs_set (anal, 1337, 0xc0ffee, R_ANAL_REF_TYPE_DATA);
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -520,7 +611,8 @@ bool test_anal_load() {
 	// tested in detail by dedicated tests
 	mu_assert_eq (blocks_count, 2, "blocks loaded");
 	mu_assert_eq (r_list_length (anal->fcns), 2, "functions loaded");
-
+	mu_assert_eq (r_anal_xrefs_count (anal), 2, "xrefs loaded");
+	
 	r_anal_free (anal);
 	mu_end;
 }
@@ -534,6 +626,8 @@ int all_tests() {
 	mu_run_test (test_anal_block_load);
 	mu_run_test (test_anal_function_save);
 	mu_run_test (test_anal_function_load);
+	mu_run_test (test_anal_xrefs_save);
+	mu_run_test (test_anal_xrefs_load);
 	mu_run_test (test_anal_save);
 	mu_run_test (test_anal_load);
 	return tests_passed != tests_run;

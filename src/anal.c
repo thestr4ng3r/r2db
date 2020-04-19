@@ -474,6 +474,27 @@ bool r_serialize_anal_hints_save_cb(ut64 addr, const RVector/*<const RAnalAddrHi
 }
 
 
+static void anal_hints_store(R_NONNULL Sdb *db, ut64 addr, R_NONNULL HintsAtAddr *hint)
+{
+	typedef struct {
+		const RVector/*<const RAnalAddrHintRecord>*/ *addr_hints;
+		bool arch_set; // true iff there is an arch hint starting at this addr
+		const char *arch;
+		bool bits_set; // true iff there is a bits hint starting at this addr
+		int bits;
+	} HintsAtAddr;
+}
+
+R_API void r_serialize_anal_hints_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	HtUP accumulated = ht_up_new(); // Hash table that maps ut64 -> HintsAtAddr *
+	// Collect all hints in the tree to sort them
+	r_anal_arch_hints_foreach (a, /* function that adds arch hints to the ht */, &accumulated);
+	r_anal_bits_hints_foreach (a, /* function that adds bits hints to the ht */, &accumulated);
+	r_anal_addr_hints_foreach (a, /* function that adds addr hints to the ht */, &accumulated);
+	... // Finally iterate through all records in the ht and call anal_hints_store() on each
+}
+
+
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	PJ *j = pj_new ();
 	if (!j) {
@@ -482,6 +503,7 @@ R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 
 	// Todo; Uncomment and link to r_anal
 	// r_anal_addr_hints_foreach (anal, (RAnalAddrHintRecordsCb)r_serialize_anal_hints_save_cb, (PJ*)j);
+	r_serialize_anal_hints_save (db, anal);
 
 	sdb_set (db, "anal_hints", pj_string (j), 0);
 	pj_free (j);

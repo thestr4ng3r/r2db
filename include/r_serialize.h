@@ -45,6 +45,11 @@ R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
  */
 R_API bool r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err);
 
+typedef void *RSerializeAnalVarParser;
+R_API RSerializeAnalVarParser r_serialize_anal_var_parser_new();
+R_API void r_serialize_anal_var_parser_free(RSerializeAnalVarParser parser);
+R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fcn, R_NONNULL RSerializeAnalVarParser parser, R_NONNULL const nx_json *json);
+
 R_API void r_serialize_anal_functions_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err);
 R_API void r_serialize_anal_xrefs_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);

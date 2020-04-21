@@ -18,7 +18,7 @@
  *   /functions
  *     0x<addr>={name:<str>, bits?:<int>, type:<int>, cc?:<str>, stack:<int>, maxstack:<int>,
  *               ninstr:<int>, folded?:<bool>, pure?:<bool>, bp_frame?:<bool>, noreturn?:<bool>,
- *               fingerprint?:"<base64>", diff?:<RAnalDiff>, bbs:[<ut64>], imports?:[<str>]}
+ *               fingerprint?:"<base64>", diff?:<RAnalDiff>, bbs:[<ut64>], imports?:[<str>], vars?:[<RAnalVar>]}
  *   /xrefs
  *     0x<addr>=[{to:<ut64>, type?:"c"|"C"|"d"|"s"}]
  *
@@ -30,6 +30,10 @@
  *
  * RAnalCaseOp JSON:
  * {addr:<ut64>, jump:<ut64>, value:<ut64>}
+ *
+ * RAnalVar JSON:
+ * {name:<str>, type:<str>, kind:"s|b|r", arg?:<bool>, delta:<st64>, reg?:<str>,
+ *   accs?: [{off:<st64>, type:"r|w|rw", sp?:<st64>}]}
  *
  */
 
@@ -541,6 +545,215 @@ R_API bool r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 	return ret;
 }
 
+R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
+	pj_o (j);
+	pj_ks (j, "name", var->name);
+	pj_ks (j, "type", var->type);
+	switch (var->kind) {
+	case R_ANAL_VAR_KIND_REG:
+		pj_ks (j, "kind", "r");
+		break;
+	case R_ANAL_VAR_KIND_SPV:
+		pj_ks (j, "kind", "s");
+		break;
+	case R_ANAL_VAR_KIND_BPV:
+		pj_ks (j, "kind", "b");
+		break;
+	}
+	if (var->isarg) {
+		pj_kb (j, "arg", true);
+	}
+	if (var->regname) {
+		pj_ks (j, "reg", var->regname);
+	}
+	if (!r_vector_empty (&var->accesses)) {
+		pj_ka (j, "accs");
+		RAnalVarAccess *acc;
+		r_vector_foreach (&var->accesses, acc) {
+			pj_kn (j, "off", acc->offset);
+			switch (acc->type) {
+			case R_ANAL_VAR_ACCESS_TYPE_READ:
+				pj_ks (j, "type", "r");
+				break;
+			case R_ANAL_VAR_ACCESS_TYPE_WRITE:
+				pj_ks (j, "type", "w");
+				break;
+			case R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE:
+				pj_ks (j, "type", "rw");
+				break;
+			}
+			if (acc->stackptr) {
+				pj_kn (j, "sp", acc->stackptr);
+			}
+		}
+		pj_end (j);
+	}
+	pj_end (j);
+}
+
+enum {
+	VAR_FIELD_NAME,
+	VAR_FIELD_TYPE,
+	VAR_FIELD_KIND,
+	VAR_FIELD_ARG,
+	VAR_FIELD_DELTA,
+	VAR_FIELD_REG,
+	VAR_FIELD_ACCS
+};
+
+R_API RSerializeAnalVarParser r_serialize_anal_var_parser_new() {
+	RSerializeAnalDiffParser parser = key_parser_new ();
+	if (!parser) {
+		return NULL;
+	}
+	key_parser_add (parser, "name", VAR_FIELD_NAME);
+	key_parser_add (parser, "type", VAR_FIELD_TYPE);
+	key_parser_add (parser, "kind", VAR_FIELD_KIND);
+	key_parser_add (parser, "arg", VAR_FIELD_ARG);
+	key_parser_add (parser, "delta", VAR_FIELD_DELTA);
+	key_parser_add (parser, "reg", VAR_FIELD_REG);
+	key_parser_add (parser, "accs", VAR_FIELD_ACCS);
+	return parser;
+}
+
+R_API void r_serialize_anal_var_parser_free(RSerializeAnalVarParser parser) {
+	key_parser_free (parser);
+}
+
+R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fcn, R_NONNULL RSerializeAnalVarParser parser, R_NONNULL const nx_json *json) {
+	if (json->type != NX_JSON_OBJECT) {
+		return NULL;
+	}
+	const char *name = NULL;
+	const char *type = NULL;
+	RAnalVarKind kind = -1;
+	bool arg = false;
+	st64 delta = ST64_MAX;
+	const char *regname = NULL;
+	RVector accesses;
+	r_vector_init (&accesses, sizeof (RAnalVarAccess), NULL, NULL);
+
+	RAnalVar *ret = NULL;
+
+	KEY_PARSER_JSON (parser, json, child, {
+		case VAR_FIELD_NAME:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			name = child->text_value;
+			break;
+		case VAR_FIELD_TYPE:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			type = child->text_value;
+			break;
+		case VAR_FIELD_KIND:
+			if (child->type != NX_JSON_STRING || !*child->text_value || *child->text_value) {
+				// must be a string of exactly 1 char
+				break;
+			}
+			switch (*child->text_value) {
+			case 'r':
+				kind = R_ANAL_VAR_KIND_REG;
+				break;
+			case 's':
+				kind = R_ANAL_VAR_KIND_SPV;
+				break;
+			case 'b':
+				kind = R_ANAL_VAR_KIND_BPV;
+				break;
+			default:
+				break;
+			}
+			break;
+		case VAR_FIELD_ARG:
+			if (child->type != NX_JSON_BOOL) {
+				break;
+			}
+			arg = child->num.u_value ? true : false;
+			break;
+		case VAR_FIELD_DELTA:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			delta = child->num.s_value;
+			break;
+		case VAR_FIELD_REG:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			regname = child->text_value;
+			break;
+		case VAR_FIELD_ACCS: {
+			if (child->type != NX_JSON_ARRAY) {
+				break;
+			}
+			nx_json *baby;
+			for (baby = child->children.first; baby; baby = baby->next) {
+				if (baby->type != NX_JSON_OBJECT) {
+					continue;
+				}
+				// {off:<st64>, type:"r|w|rw", sp?:<st64>}
+				const nx_json *offv = nx_json_get (baby, "off");
+				if (!offv || offv->type != NX_JSON_INTEGER) {
+					continue;
+				}
+				const nx_json *typev = nx_json_get (baby, "type");
+				if (!typev || typev->type != NX_JSON_STRING) {
+					continue;
+				}
+				const char *acctype_str = typev->text_value;
+				const nx_json *spv = nx_json_get (baby, "sp");
+				if (spv && spv->type != NX_JSON_INTEGER) {
+					continue;
+				}
+
+				ut64 acctype;
+				// parse "r", "w" or "rw" and reject everything else
+				if (acctype_str[0] == 'r') {
+					if (acctype_str[1] == 'w') {
+						acctype = R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE;
+					} else if (!acctype_str[1]) {
+						acctype = R_ANAL_VAR_ACCESS_TYPE_READ;
+					} else {
+						continue;
+					}
+				} else if (acctype_str[0] == 'w' && !acctype_str[1]) {
+					acctype = R_ANAL_VAR_ACCESS_TYPE_WRITE;
+				} else {
+					continue;
+				}
+
+				RAnalVarAccess *acc = r_vector_push (&accesses, NULL);
+				acc->offset = offv->num.s_value;
+				acc->type = acctype;
+				acc->stackptr = spv ? spv->num.s_value : 0;
+			}
+			break;
+		}
+		default:
+			break;
+	})
+
+	if (!name || !type || kind == -1 || delta == ST64_MAX) {
+		goto beach;
+	}
+	ret = r_anal_function_set_var (fcn, delta, kind, type, 0, arg, name);
+	if (!ret) {
+		goto beach;
+	}
+	(void)regname; // Not using this yet, but we saved it for potential backwards compatibility later
+	RAnalVarAccess *acc;
+	r_vector_foreach (&accesses, acc) {
+		r_anal_var_set_access (ret, fcn->addr + acc->offset, acc->type, acc->stackptr);
+	}
+
+beach:
+	r_vector_fini (&accesses);
+	return ret;
+}
+
 static void function_store(R_NONNULL Sdb *db, const char *key, RAnalFunction *function) {
 	PJ *j = pj_new ();
 	if (!j) {
@@ -600,6 +813,16 @@ static void function_store(R_NONNULL Sdb *db, const char *key, RAnalFunction *fu
 		pj_end (j);
 	}
 
+	if (!r_pvector_empty (&function->vars)) {
+		pj_ka (j, "vars");
+		void **vit;
+		r_pvector_foreach (&function->vars, vit) {
+			RAnalVar *var = *vit;
+			r_serialize_anal_var_save (j, var);
+		}
+		pj_end (j);
+	}
+
 	pj_end (j);
 	sdb_set (db, key, pj_string (j), 0);
 	pj_free (j);
@@ -632,13 +855,15 @@ enum {
 	FUNCTION_FIELD_FINGERPRINT,
 	FUNCTION_FIELD_DIFF,
 	FUNCTION_FIELD_BBS,
-	FUNCTION_FIELD_IMPORTS
+	FUNCTION_FIELD_IMPORTS,
+	FUNCTION_FIELD_VARS
 };
 
 typedef struct {
 	RAnal *anal;
 	KeyParser *parser;
 	RSerializeAnalDiffParser diff_parser;
+	RSerializeAnalVarParser var_parser;
 } FunctionLoadCtx;
 
 static int function_load_cb(void *user, const char *k, const char *v) {
@@ -658,6 +883,7 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 	function->bits = 0; // should be 0 if not specified
 	function->bp_frame = false; // should be false if not specified
 	bool noreturn = false;
+	nx_json *vars_json = NULL;
 	KEY_PARSER_JSON (ctx->parser, json, child, {
 		case FUNCTION_FIELD_NAME:
 			if (child->type != NX_JSON_STRING) {
@@ -806,6 +1032,13 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 			}
 			break;
 		}
+		case FUNCTION_FIELD_VARS: {
+			if (child->type != NX_JSON_ARRAY) {
+				break;
+			}
+			vars_json = child;
+			break;
+		}
 		default:
 			break;
 	})
@@ -819,6 +1052,13 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 		return false;
 	}
 	function->is_noreturn = noreturn; // Can't set directly, r_anal_add_function() overwrites it
+
+	if (vars_json) {
+		nx_json *baby;
+		for (baby = vars_json->children.first; baby; baby = baby->next) {
+			r_serialize_anal_var_load (function, ctx->var_parser, baby);
+		}
+	}
 
 	return true;
 }
@@ -844,6 +1084,7 @@ R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *a
 	key_parser_add (ctx.parser, "diff", FUNCTION_FIELD_DIFF);
 	key_parser_add (ctx.parser, "bbs", FUNCTION_FIELD_BBS);
 	key_parser_add (ctx.parser, "imports", FUNCTION_FIELD_IMPORTS);
+	key_parser_add (ctx.parser, "vars", FUNCTION_FIELD_VARS);
 	bool ret = sdb_foreach (db, function_load_cb, &ctx);
 	key_parser_free (ctx.parser);
 	if (!ret) {

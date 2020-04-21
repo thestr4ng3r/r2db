@@ -560,6 +560,7 @@ R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
 		pj_ks (j, "kind", "b");
 		break;
 	}
+	pj_kN (j, "delta", var->delta);
 	if (var->isarg) {
 		pj_kb (j, "arg", true);
 	}
@@ -570,6 +571,7 @@ R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
 		pj_ka (j, "accs");
 		RAnalVarAccess *acc;
 		r_vector_foreach (&var->accesses, acc) {
+			pj_o (j);
 			pj_kn (j, "off", acc->offset);
 			switch (acc->type) {
 			case R_ANAL_VAR_ACCESS_TYPE_READ:
@@ -585,6 +587,7 @@ R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
 			if (acc->stackptr) {
 				pj_kn (j, "sp", acc->stackptr);
 			}
+			pj_end (j);
 		}
 		pj_end (j);
 	}
@@ -649,7 +652,7 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 			type = child->text_value;
 			break;
 		case VAR_FIELD_KIND:
-			if (child->type != NX_JSON_STRING || !*child->text_value || *child->text_value) {
+			if (child->type != NX_JSON_STRING || !*child->text_value || child->text_value[1]) {
 				// must be a string of exactly 1 char
 				break;
 			}
@@ -675,6 +678,7 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 			break;
 		case VAR_FIELD_DELTA:
 			if (child->type != NX_JSON_INTEGER) {
+				eprintf ("delta nop\n");
 				break;
 			}
 			delta = child->num.s_value;
@@ -1042,14 +1046,14 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 		default:
 			break;
 	})
-	nx_json_free (json);
-	free (json_str);
 
+	bool ret = true;
 	errno = 0;
 	function->addr = strtoull (k, NULL, 0);
 	if (errno || !function->name || !r_anal_add_function (ctx->anal, function)) {
 		r_anal_function_free (function);
-		return false;
+		ret = false;
+		goto beach;
 	}
 	function->is_noreturn = noreturn; // Can't set directly, r_anal_add_function() overwrites it
 
@@ -1060,14 +1064,24 @@ static int function_load_cb(void *user, const char *k, const char *v) {
 		}
 	}
 
-	return true;
+beach:
+	nx_json_free (json);
+	free (json_str);
+	return ret;
 }
 
 R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err) {
-	BlockLoadCtx ctx = { anal, key_parser_new (), diff_parser };
-	if (!ctx.parser) {
+	FunctionLoadCtx ctx = {
+		.anal = anal,
+		.parser = key_parser_new (),
+		.diff_parser = diff_parser,
+		.var_parser = r_serialize_anal_var_parser_new ()
+	};
+	bool ret;
+	if (!ctx.parser || !ctx.var_parser) {
 		SERIALIZE_ERR ("parser init failed");
-		return false;
+		ret = false;
+		goto beach;
 	}
 	key_parser_add (ctx.parser, "name", FUNCTION_FIELD_NAME);
 	key_parser_add (ctx.parser, "bits", FUNCTION_FIELD_BITS);
@@ -1085,11 +1099,13 @@ R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *a
 	key_parser_add (ctx.parser, "bbs", FUNCTION_FIELD_BBS);
 	key_parser_add (ctx.parser, "imports", FUNCTION_FIELD_IMPORTS);
 	key_parser_add (ctx.parser, "vars", FUNCTION_FIELD_VARS);
-	bool ret = sdb_foreach (db, function_load_cb, &ctx);
-	key_parser_free (ctx.parser);
+	ret = sdb_foreach (db, function_load_cb, &ctx);
 	if (!ret) {
 		SERIALIZE_ERR ("functions parsing failed");
 	}
+beach:
+	key_parser_free (ctx.parser);
+	r_serialize_anal_var_parser_free (ctx.var_parser);
 	return ret;
 }
 

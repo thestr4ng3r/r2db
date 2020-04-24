@@ -460,6 +460,119 @@ bool test_anal_function_load() {
 	mu_end;
 }
 
+Sdb *vars_ref_db() {
+	Sdb *db = sdb_new0 ();
+	sdb_set (db, "0x539", "{\"name\":\"hirsch\",\"bits\":64,\"type\":0,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[],"
+		"\"vars\":["
+		"{\"name\":\"arg_rax\",\"type\":\"int64_t\",\"kind\":\"r\",\"reg\":\"rax\",\"arg\":true,\"accs\":[{\"off\":3,\"type\":\"r\",\"sp\":42},{\"off\":13,\"type\":\"rw\",\"sp\":13},{\"off\":23,\"type\":\"w\",\"sp\":123}]},"
+		"{\"name\":\"var_sp\",\"type\":\"const char *\",\"kind\":\"s\",\"delta\":16,\"accs\":[{\"off\":3,\"type\":\"w\",\"sp\":321}]},"
+		"{\"name\":\"var_bp\",\"type\":\"struct something\",\"kind\":\"b\",\"delta\":-16},"
+		"{\"name\":\"arg_bp\",\"type\":\"uint64_t\",\"kind\":\"b\",\"delta\":16,\"arg\":true}]}", 0);
+	return db;
+}
+
+bool test_anal_var_save() {
+	RAnal *anal = r_anal_new ();
+	r_anal_use (anal, "x86");
+	r_anal_set_bits (anal, 64);
+
+	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, r_anal_diff_new ());
+
+	RRegItem *rax = r_reg_get (anal->reg, "rax", -1);
+	RAnalVar *v = r_anal_function_set_var (f, rax->index, R_ANAL_VAR_KIND_REG, "int64_t", 0, true, "arg_rax");
+	r_anal_var_set_access (v, 1340, R_ANAL_VAR_ACCESS_TYPE_READ, 42);
+	r_anal_var_set_access (v, 1350, R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE, 13);
+	r_anal_var_set_access (v, 1360, R_ANAL_VAR_ACCESS_TYPE_WRITE, 123);
+
+	v = r_anal_function_set_var (f, 0x10, R_ANAL_VAR_KIND_SPV, "const char *", 0, false, "var_sp");
+	r_anal_var_set_access (v, 1340, R_ANAL_VAR_ACCESS_TYPE_WRITE, 321);
+
+	r_anal_function_set_var (f, -0x10, R_ANAL_VAR_KIND_BPV, "struct something", 0, false, "var_bp");
+	r_anal_function_set_var (f, 0x10, R_ANAL_VAR_KIND_BPV, "uint64_t", 0, true, "arg_bp");
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_functions_save (db, anal);
+
+	Sdb *expected = vars_ref_db ();
+	assert_sdb_eq (db, expected, "functions save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_var_load() {
+	RAnal *anal = r_anal_new ();
+	r_anal_use (anal, "x86");
+	r_anal_set_bits (anal, 64);
+
+	Sdb *db = vars_ref_db ();
+	RSerializeAnalDiffParser diff_parser = r_serialize_anal_diff_parser_new ();
+
+	bool succ = r_serialize_anal_functions_load (db, anal, diff_parser, NULL);
+	mu_assert ("load success", succ);
+
+	RAnalFunction *f = r_anal_get_function_at (anal, 1337);
+	mu_assert_notnull (f, "function");
+
+	mu_assert_eq (r_pvector_len (&f->vars), 4, "vars count");
+
+	RRegItem *rax = r_reg_get (anal->reg, "rax", -1);
+	RAnalVar *v = r_anal_function_get_var (f, R_ANAL_VAR_KIND_REG, rax->index);
+	mu_assert_notnull (v, "var");
+	mu_assert_streq (v->regname, "rax", "var regname");
+	mu_assert_streq (v->name, "arg_rax", "var name");
+	mu_assert_streq (v->type, "int64_t", "var type");
+	mu_assert ("var arg", v->isarg);
+
+	mu_assert_eq (v->accesses.len, 3, "accesses count");
+	bool found[3] = { false, false, false };
+	RAnalVarAccess *acc;
+	r_vector_foreach (&v->accesses, acc) {
+		if (acc->offset == 3 && acc->type == R_ANAL_VAR_ACCESS_TYPE_READ && acc->stackptr == 42) {
+			found[0] = true;
+		} else if (acc->offset == 13 && acc->type == (R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE) && acc->stackptr == 13) {
+			found[1] = true;
+		} else if (acc->offset == 23 && acc->type == R_ANAL_VAR_ACCESS_TYPE_WRITE && acc->stackptr == 123) {
+			found[2] = true;
+		}
+	}
+	mu_assert ("var accesses", found[0] && found[1] && found[2]);
+	RPVector *used = r_anal_function_get_vars_used_at (f, 1340);
+	mu_assert ("var used", r_pvector_contains (used, v));
+
+	v = r_anal_function_get_var (f, R_ANAL_VAR_KIND_SPV, 0x10);
+	mu_assert_notnull (v, "var");
+	mu_assert_streq (v->name, "var_sp", "var name");
+	mu_assert_streq (v->type, "const char *", "var type");
+	mu_assert ("var arg", !v->isarg);
+	mu_assert_eq (v->accesses.len, 1, "accesses count");
+	acc = r_vector_index_ptr (&v->accesses, 0);
+	mu_assert_eq (acc->offset, 3, "access offset");
+	mu_assert_eq (acc->type, R_ANAL_VAR_ACCESS_TYPE_WRITE, "access type");
+	mu_assert_eq (acc->stackptr, 321, "access stackptr");
+	mu_assert ("var used", r_pvector_contains (used, v)); // used at the same var as the reg one
+
+	v = r_anal_function_get_var (f, R_ANAL_VAR_KIND_BPV, -0x10);
+	mu_assert_notnull (v, "var");
+	mu_assert_streq (v->name, "var_bp", "var name");
+	mu_assert_streq (v->type, "struct something", "var type");
+	mu_assert ("var arg", !v->isarg);
+	mu_assert_eq (v->accesses.len, 0, "accesses count");
+
+	v = r_anal_function_get_var (f, R_ANAL_VAR_KIND_BPV, 0x10);
+	mu_assert_notnull (v, "var");
+	mu_assert_streq (v->name, "arg_bp", "var name");
+	mu_assert_streq (v->type, "uint64_t", "var type");
+	mu_assert ("var arg", v->isarg);
+	mu_assert_eq (v->accesses.len, 0, "accesses count");
+
+	sdb_free (db);
+	r_anal_free (anal);
+	r_serialize_anal_diff_parser_free (diff_parser);
+	mu_end;
+}
+
 Sdb *xrefs_ref_db() {
 	Sdb *db = sdb_new0 ();
 	sdb_set (db, "0x29a", "[{\"to\":333,\"type\":\"s\"}]", 0);
@@ -626,6 +739,8 @@ int all_tests() {
 	mu_run_test (test_anal_block_load);
 	mu_run_test (test_anal_function_save);
 	mu_run_test (test_anal_function_load);
+	mu_run_test (test_anal_var_save);
+	mu_run_test (test_anal_var_load);
 	mu_run_test (test_anal_xrefs_save);
 	mu_run_test (test_anal_xrefs_load);
 	mu_run_test (test_anal_save);

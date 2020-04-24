@@ -32,7 +32,7 @@
  * {addr:<ut64>, jump:<ut64>, value:<ut64>}
  *
  * RAnalVar JSON:
- * {name:<str>, type:<str>, kind:"s|b|r", arg?:<bool>, delta:<st64>, reg?:<str>,
+ * {name:<str>, type:<str>, kind:"s|b|r", arg?:<bool>, delta?:<st64>, reg?:<str>,
  *   accs?: [{off:<st64>, type:"r|w|rw", sp?:<st64>}]}
  *
  */
@@ -560,12 +560,14 @@ R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
 		pj_ks (j, "kind", "b");
 		break;
 	}
-	pj_kN (j, "delta", var->delta);
-	if (var->isarg) {
-		pj_kb (j, "arg", true);
+	if (var->kind != R_ANAL_VAR_KIND_REG) {
+		pj_kN (j, "delta", var->delta);
 	}
 	if (var->regname) {
 		pj_ks (j, "reg", var->regname);
+	}
+	if (var->isarg) {
+		pj_kb (j, "arg", true);
 	}
 	if (!r_vector_empty (&var->accesses)) {
 		pj_ka (j, "accs");
@@ -740,6 +742,17 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 			break;
 	})
 
+
+	if (kind == R_ANAL_VAR_KIND_REG) {
+		if (!regname) {
+			goto beach;
+		}
+		RRegItem *reg = r_reg_get (fcn->anal->reg, regname, -1);
+		if (!reg) {
+			goto beach;
+		}
+		delta = reg->index;
+	}
 	if (!name || !type || kind == -1 || delta == ST64_MAX) {
 		goto beach;
 	}
@@ -747,7 +760,6 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 	if (!ret) {
 		goto beach;
 	}
-	(void)regname; // Not using this yet, but we saved it for potential backwards compatibility later
 	RAnalVarAccess *acc;
 	r_vector_foreach (&accesses, acc) {
 		r_anal_var_set_access (ret, fcn->addr + acc->offset, acc->type, acc->stackptr);

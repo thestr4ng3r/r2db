@@ -6,7 +6,7 @@
 #define PERTURBATOR_JSON "\\\\,\\\";] [}{'"
 
 static void diff_cb(const SdbDiff *diff, void *user) {
-	char buf[512];
+	char buf[2048];
 	if (sdb_diff_format (buf, sizeof(buf), diff) < 0) {
 		return;
 	}

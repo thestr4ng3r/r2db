@@ -22,6 +22,11 @@
  *   /xrefs
  *     0x<addr>=[{to:<ut64>, type?:"c"|"C"|"d"|"s"}]
  *
+ *   /meta
+ *     0x<addr>=[{size?:<ut64, interpreted as 1 if not present>, type:<str>, subtype?:<int>, str?:<str>, space?:<str>}]
+ *     /spaces
+ *       see spaces.c
+ *
  * RAnalDiff JSON:
  * {type?:"m"|"u", addr:<ut64>, dist:<double>, name?:<str>, size:<ut32>}
  *
@@ -1221,6 +1226,215 @@ R_API bool r_serialize_anal_xrefs_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal,
 	bool ret = sdb_foreach (db, xrefs_load_cb, anal);
 	if (!ret) {
 		SERIALIZE_ERR ("xrefs parsing failed");
+	}
+	return ret;
+}
+
+R_API void r_serialize_anal_meta_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	r_serialize_spaces_save (sdb_ns (db, "spaces", true), &anal->meta_spaces);
+
+	PJ *j = pj_new ();
+	if (!j) {
+		return;
+	}
+	char key[0x20];
+	RIntervalTreeIter it;
+	RAnalMetaItem *meta;
+	ut64 addr = 0;
+	size_t count = 0;
+#define FLUSH pj_end (j); \
+		if (snprintf (key, sizeof (key), "0x%"PFMT64x, addr) >= 0) { \
+			sdb_set (db, key, pj_string (j), 0); \
+		}
+	r_interval_tree_foreach (&anal->meta, it, meta) {
+		RIntervalNode *node = r_interval_tree_iter_get (&it);
+		if (count && node->start != addr) {
+			// new address
+			FLUSH
+			pj_reset (j);
+			pj_a (j);
+		} else if (!count) {
+			// first address
+			pj_a (j);
+		}
+		pj_o (j);
+		ut64 size = r_meta_node_size (node);
+		if (size != 1) {
+			pj_kn (j, "size", size);
+		}
+		char type_str[2] = { 0 };
+		switch (meta->type) {
+		case R_META_TYPE_DATA:
+			type_str[0] = 'd';
+			break;
+		case R_META_TYPE_CODE:
+			type_str[0] = 'c';
+			break;
+		case R_META_TYPE_STRING:
+			type_str[0] = 's';
+			break;
+		case R_META_TYPE_FORMAT:
+			type_str[0] = 'f';
+			break;
+		case R_META_TYPE_MAGIC:
+			type_str[0] = 'm';
+			break;
+		case R_META_TYPE_HIDE:
+			type_str[0] = 'h';
+			break;
+		case R_META_TYPE_COMMENT:
+			type_str[0] = 'C';
+			break;
+		case R_META_TYPE_RUN:
+			type_str[0] = 'r';
+			break;
+		case R_META_TYPE_HIGHLIGHT:
+			type_str[0] = 'H';
+			break;
+		case R_META_TYPE_VARTYPE:
+			type_str[0] = 't';
+			break;
+		default:
+			break;
+		}
+		pj_ks (j, "type", type_str);
+		if (meta->subtype) {
+			pj_ki (j, "subtype", meta->subtype);
+		}
+		if (meta->str) {
+			pj_ks (j, "str", meta->str);
+		}
+		if (meta->space) {
+			pj_ks (j, "space", meta->space->name);
+		}
+		pj_end (j);
+	}
+	if (count) {
+		FLUSH
+	}
+#undef FLUSH
+	pj_free (j);
+}
+
+static int meta_load_cb(void *user, const char *k, const char *v) {
+	RAnal *anal = user;
+
+	errno = 0;
+	ut64 addr = strtoull (k, NULL, 0);;
+	if (errno) {
+		return false;
+	}
+
+	char *json_str = strdup (v);
+	if (!json_str) {
+		return true;
+	}
+	const nx_json *json = nx_json_parse_utf8 (json_str);
+	if (!json || json->type != NX_JSON_ARRAY) {
+		free (json_str);
+		return false;
+	}
+
+	const nx_json *child;
+	for (child = json->children.first; child; child = child->next) {
+		if (child->type != NX_JSON_OBJECT) {
+			goto error;
+		}
+
+		ut64 size = 1;
+		RAnalMetaType type = R_META_TYPE_ANY;
+		const char *str = NULL;
+		int subtype = 0;
+		const char *space_name = NULL;
+
+		const nx_json *baby;
+		for (baby = child->children.first; baby; baby = baby->next) {
+			if (!strcmp (baby->key, "size")) {
+				if (baby->type == NX_JSON_INTEGER) {
+					size = baby->num.u_value;
+				}
+				continue;
+			}
+			if (!strcmp (baby->key, "type")) {
+				// only single-char strings accepted
+				if (baby->type == NX_JSON_STRING && baby->text_value[0] && !baby->text_value[1]) {
+					switch (baby->text_value[0]) {
+					case 'd':
+						type = R_META_TYPE_DATA;
+					case 'c':
+						type = R_META_TYPE_CODE;
+					case 's':
+						type = R_META_TYPE_STRING;
+					case 'f':
+						type = R_META_TYPE_FORMAT;
+					case 'm':
+						type = R_META_TYPE_MAGIC;
+					case 'h':
+						type = R_META_TYPE_HIDE;
+					case 'C':
+						type = R_META_TYPE_COMMENT;
+					case 'r':
+						type = R_META_TYPE_RUN;
+					case 'H':
+						type = R_META_TYPE_HIGHLIGHT;
+					case 't':
+						type = R_META_TYPE_VARTYPE;
+					default:
+						break;
+					}
+				}
+				continue;
+			}
+			if (!strcmp (baby->key, "str")) {
+				if (baby->type == NX_JSON_STRING) {
+					str = baby->text_value;
+				}
+				continue;
+			}
+			if (!strcmp (baby->key, "subtype")) {
+				if (baby->type == NX_JSON_INTEGER) {
+					subtype = (int)baby->num.s_value;
+				}
+				continue;
+			}
+			if (!strcmp (baby->key, "space")) {
+				if (baby->type == NX_JSON_STRING) {
+					space_name = baby->text_value;
+				}
+				continue;
+			}
+		}
+
+		if (type == R_META_TYPE_ANY || (type == R_META_TYPE_COMMENT && !str)) {
+			continue;
+		}
+
+		// TODO: set space here
+		r_meta_set_with_subtype (anal, type, subtype, addr, size, str);
+	}
+
+	nx_json_free (json);
+	free (json_str);
+
+	return true;
+error:
+	nx_json_free (json);
+	free (json_str);
+	return false;
+}
+
+R_API bool r_serialize_anal_meta_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	Sdb *spaces_db = sdb_ns (db, "spaces", false);
+	if (!spaces_db) {
+		SERIALIZE_ERR ("missing meta spaces namespace");
+		return false;
+	}
+	if (!r_serialize_spaces_load (spaces_db, &anal->meta_spaces, false, err)) {
+		return false;
+	}
+	bool ret = sdb_foreach (db, meta_load_cb, anal);
+	if (!ret) {
+		SERIALIZE_ERR ("meta parsing failed");
 	}
 	return ret;
 }

@@ -44,7 +44,7 @@ R_API void r_serialize_flag_zones_save(R_NONNULL Sdb *db, R_NONNULL RList/*<RFla
 	}
 }
 
-static int zone_load_cb(void *user, const char *k, const char *v) {
+static bool zone_load_cb(void *user, const char *k, const char *v) {
 	RList *list = user;
 	char *json_str = strdup (v);
 	if (!json_str) {
@@ -155,7 +155,7 @@ typedef struct {
 	HtPP *fields;
 } FlagLoadCtx;
 
-static int flag_load_cb(void *user, const char *k, const char *v) {
+static bool flag_load_cb(void *user, const char *k, const char *v) {
 	FlagLoadCtx *ctx = user;
 
 	char *json_str = strdup (v);

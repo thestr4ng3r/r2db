@@ -22,7 +22,7 @@ R_API void r_serialize_config_save(R_NONNULL Sdb *db, R_NONNULL RConfig *config)
 	}
 }
 
-static int load_config_cb(void *user, const char *k, const char *v) {
+static bool load_config_cb(void *user, const char *k, const char *v) {
 	RConfig *config = user;
 	RConfigNode *node = r_config_node_get (config, k);
 	if (!node) {

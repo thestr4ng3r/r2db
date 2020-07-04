@@ -898,7 +898,7 @@ typedef struct {
 	RSerializeAnalVarParser var_parser;
 } FunctionLoadCtx;
 
-static int function_load_cb(void *user, const char *k, const char *v) {
+static bool function_load_cb(void *user, const char *k, const char *v) {
 	FunctionLoadCtx *ctx = user;
 
 	char *json_str = strdup (v);
@@ -1171,7 +1171,7 @@ R_API void r_serialize_anal_xrefs_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal)
 	ht_up_foreach (anal->dict_refs, store_xrefs_list_cb, db);
 }
 
-static int xrefs_load_cb(void *user, const char *k, const char *v) {
+static bool xrefs_load_cb(void *user, const char *k, const char *v) {
 	RAnal *anal = user;
 
 	errno = 0;
@@ -1330,7 +1330,7 @@ R_API void r_serialize_anal_meta_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) 
 	pj_free (j);
 }
 
-static int meta_load_cb(void *user, const char *k, const char *v) {
+static bool meta_load_cb(void *user, const char *k, const char *v) {
 	RAnal *anal = user;
 
 	errno = 0;

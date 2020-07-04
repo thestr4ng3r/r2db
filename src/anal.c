@@ -27,6 +27,11 @@
  *     /spaces
  *       see spaces.c
  *
+ *   /hints
+ *     0x<addr>={arch?:<str|null>,bits?:<int|null>,toff?:<string>,nword?:<int>,jump?:<ut64>,fail?:<ut64>,newbits?:<int>,
+ *               immbase?:<int>,ptr?:<ut64>,ret?:<ut64>,syntax?:<str>,opcode?:<str>,esil?:<str>,optype?:<int>,
+ *               size?:<ut64>,frame?:<ut64>,val?:<ut64>}
+ *
  * RAnalDiff JSON:
  * {type?:"m"|"u", addr:<ut64>, dist:<double>, name?:<str>, size:<ut32>}
  *
@@ -38,7 +43,7 @@
  *
  * RAnalVar JSON:
  * {name:<str>, type:<str>, kind:"s|b|r", arg?:<bool>, delta?:<st64>, reg?:<str>,
- *   accs?: [{off:<st64>, type:"r|w|rw", reg:"name", sp?:<st64>}]}
+ *   accs?: [{off:<st64>, type:"r|w|rw", reg:<str>, sp?:<st64>}]}
  *
  */
 
@@ -1477,6 +1482,152 @@ R_API bool r_serialize_anal_meta_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, 
 	}
 	return ret;
 }
+
+typedef struct {
+	const RVector/*<const RAnalAddrHintRecord>*/ *addr_hints;
+	const char *arch;
+	int bits;
+	bool arch_set;
+	bool bits_set;
+} HintsAtAddr;
+
+static void hints_at_addr_kv_free(HtUPKv *kv) {
+	free (kv->value);
+}
+
+static HintsAtAddr *hints_at_addr(HtUP *acc, ut64 addr) {
+	HintsAtAddr *h = ht_up_find (acc, addr, NULL);
+	if (h) {
+		return NULL;
+	}
+	h = R_NEW0 (HintsAtAddr);
+	if (!h) {
+		return NULL;
+	}
+	ht_up_insert (acc, addr, h);
+	return h;
+}
+
+static bool addr_hint_acc_cb(ut64 addr, const RVector/*<const RAnalAddrHintRecord>*/ *records, void *user) {
+	HintsAtAddr *h = hints_at_addr (user, addr);
+	if (!h) {
+		return false;
+	}
+	h->addr_hints = records;
+	return true;
+}
+
+static bool arch_hint_acc_cb(ut64 addr, R_NULLABLE const char *arch, void *user) {
+	HintsAtAddr *h = hints_at_addr (user, addr);
+	if (!h) {
+		return false;
+	}
+	h->arch = arch;
+	h->arch_set = true;
+	return true;
+}
+
+static bool bits_hint_acc_cb(ut64 addr, int bits, void *user) {
+	HintsAtAddr *h = hints_at_addr (user, addr);
+	if (!h) {
+		return false;
+	}
+	h->bits = bits;
+	h->bits_set = true;
+	return true;
+}
+
+static bool hints_acc_store_cb(void *user, const ut64 addr, const void *v) {
+	const HintsAtAddr *h = v;
+	Sdb *db = user;
+	PJ *j = pj_new();
+	if (!j) {
+		return false;
+	}
+	pj_o (j);
+	if (h->arch_set) {
+		pj_k (j, "arch");
+		if (h->arch) {
+			pj_s (j, h->arch);
+		} else {
+			pj_null (j);
+		}
+	}
+	if (h->bits_set) {
+		pj_ki (j, "bits", h->bits);
+	}
+	if (h->addr_hints) {
+		RAnalAddrHintRecord *record;
+		r_vector_foreach (h->addr_hints, record) {
+			switch (record->type) {
+			case R_ANAL_ADDR_HINT_TYPE_IMMBASE:
+				pj_ki (j, "immbase", record->immbase);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_JUMP:
+				pj_kn (j, "jump", record->jump);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_FAIL:
+				pj_kn (j, "fail", record->fail);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_STACKFRAME:
+				pj_kn (j, "frame", record->stackframe);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_PTR:
+				pj_kn (j, "ptr", record->ptr);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_NWORD:
+				pj_ki (j, "nword", record->nword);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_RET:
+				pj_kn (j, "ret", record->retval);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_NEW_BITS:
+				pj_ki (j, "newbits", record->newbits);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_SIZE:
+				pj_kn (j, "size", record->size);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_SYNTAX:
+				pj_ks (j, "syntax", record->syntax);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_OPTYPE:
+				pj_ki (j, "optype", record->optype);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_OPCODE:
+				pj_ks (j, "opcode", record->opcode);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_TYPE_OFFSET:
+				pj_ks (j, "toff", record->type_offset);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_ESIL:
+				pj_ks (j, "esil", record->esil);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_HIGH:
+				pj_kb (j, "high", true);
+				break;
+			case R_ANAL_ADDR_HINT_TYPE_VAL:
+				pj_kn (j, "val", record->val);
+				break;
+			}
+		}
+	}
+	pj_end (j);
+	return true;
+}
+
+R_API void r_serialize_anal_hints_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	HtUP/*<HintsAtAddr *>*/ *acc = ht_up_new (NULL, hints_at_addr_kv_free, NULL);
+	r_anal_addr_hints_foreach (anal, addr_hint_acc_cb, acc);
+	r_anal_arch_hints_foreach (anal, arch_hint_acc_cb, acc);
+	r_anal_bits_hints_foreach (anal, bits_hint_acc_cb, acc);
+	ht_up_foreach (acc, NULL, db);
+	ht_up_free (acc);
+}
+
+R_API bool r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	return false;
+}
+
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_xrefs_save (sdb_ns (db, "xrefs", true), anal);

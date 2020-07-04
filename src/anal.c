@@ -38,7 +38,7 @@
  *
  * RAnalVar JSON:
  * {name:<str>, type:<str>, kind:"s|b|r", arg?:<bool>, delta?:<st64>, reg?:<str>,
- *   accs?: [{off:<st64>, type:"r|w|rw", sp?:<st64>}]}
+ *   accs?: [{off:<st64>, type:"r|w|rw", reg:"name", sp?:<st64>}]}
  *
  */
 
@@ -328,7 +328,7 @@ typedef struct {
 	RSerializeAnalDiffParser diff_parser;
 } BlockLoadCtx;
 
-static int block_load_cb(void *user, const char *k, const char *v) {
+static bool block_load_cb(void *user, const char *k, const char *v) {
 	BlockLoadCtx *ctx = user;
 
 	char *json_str = strdup (v);
@@ -594,6 +594,12 @@ R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
 			if (acc->stackptr) {
 				pj_kn (j, "sp", acc->stackptr);
 			}
+			if (acc->reg) {
+				r_return_if_fail(321);
+				pj_ks (j, "reg", acc->reg);
+			} else {
+				r_warn_if_reached();
+			}
 			pj_end (j);
 		}
 		pj_end (j);
@@ -719,6 +725,10 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 				if (spv && spv->type != NX_JSON_INTEGER) {
 					continue;
 				}
+				const nx_json *regv = nx_json_get (baby, "reg");
+				if (!regv || regv->type != NX_JSON_STRING) {
+					continue;
+				}
 
 				ut64 acctype;
 				// parse "r", "w" or "rw" and reject everything else
@@ -740,6 +750,7 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 				acc->offset = offv->num.s_value;
 				acc->type = acctype;
 				acc->stackptr = spv ? spv->num.s_value : 0;
+				acc->reg = regv->text_value;
 			}
 			break;
 		}
@@ -767,7 +778,7 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 	}
 	RAnalVarAccess *acc;
 	r_vector_foreach (&accesses, acc) {
-		r_anal_var_set_access (ret, fcn->addr + acc->offset, acc->type, acc->stackptr);
+		r_anal_var_set_access (ret, acc->reg, fcn->addr + acc->offset, acc->type, acc->stackptr);
 	}
 
 beach:

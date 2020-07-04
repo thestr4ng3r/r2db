@@ -464,8 +464,8 @@ Sdb *vars_ref_db() {
 	Sdb *db = sdb_new0 ();
 	sdb_set (db, "0x539", "{\"name\":\"hirsch\",\"bits\":64,\"type\":0,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[],"
 		"\"vars\":["
-		"{\"name\":\"arg_rax\",\"type\":\"int64_t\",\"kind\":\"r\",\"reg\":\"rax\",\"arg\":true,\"accs\":[{\"off\":3,\"type\":\"r\",\"sp\":42},{\"off\":13,\"type\":\"rw\",\"sp\":13},{\"off\":23,\"type\":\"w\",\"sp\":123}]},"
-		"{\"name\":\"var_sp\",\"type\":\"const char *\",\"kind\":\"s\",\"delta\":16,\"accs\":[{\"off\":3,\"type\":\"w\",\"sp\":321}]},"
+		"{\"name\":\"arg_rax\",\"type\":\"int64_t\",\"kind\":\"r\",\"reg\":\"rax\",\"arg\":true,\"accs\":[{\"off\":3,\"type\":\"r\",\"sp\":42,\"reg\":\"rax\"},{\"off\":13,\"type\":\"rw\",\"sp\":13,\"reg\":\"rbx\"},{\"off\":23,\"type\":\"w\",\"sp\":123,\"reg\":\"rcx\"}]},"
+		"{\"name\":\"var_sp\",\"type\":\"const char *\",\"kind\":\"s\",\"delta\":16,\"accs\":[{\"off\":3,\"type\":\"w\",\"sp\":321,\"reg\":\"rsp\"}]},"
 		"{\"name\":\"var_bp\",\"type\":\"struct something\",\"kind\":\"b\",\"delta\":-16},"
 		"{\"name\":\"arg_bp\",\"type\":\"uint64_t\",\"kind\":\"b\",\"delta\":16,\"arg\":true}]}", 0);
 	return db;
@@ -480,12 +480,12 @@ bool test_anal_var_save() {
 
 	RRegItem *rax = r_reg_get (anal->reg, "rax", -1);
 	RAnalVar *v = r_anal_function_set_var (f, rax->index, R_ANAL_VAR_KIND_REG, "int64_t", 0, true, "arg_rax");
-	r_anal_var_set_access (v, 1340, R_ANAL_VAR_ACCESS_TYPE_READ, 42);
-	r_anal_var_set_access (v, 1350, R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE, 13);
-	r_anal_var_set_access (v, 1360, R_ANAL_VAR_ACCESS_TYPE_WRITE, 123);
+	r_anal_var_set_access (v, "rax", 1340, R_ANAL_VAR_ACCESS_TYPE_READ, 42);
+	r_anal_var_set_access (v, "rbx", 1350, R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE, 13);
+	r_anal_var_set_access (v, "rcx", 1360, R_ANAL_VAR_ACCESS_TYPE_WRITE, 123);
 
 	v = r_anal_function_set_var (f, 0x10, R_ANAL_VAR_KIND_SPV, "const char *", 0, false, "var_sp");
-	r_anal_var_set_access (v, 1340, R_ANAL_VAR_ACCESS_TYPE_WRITE, 321);
+	r_anal_var_set_access (v, "rsp", 1340, R_ANAL_VAR_ACCESS_TYPE_WRITE, 321);
 
 	r_anal_function_set_var (f, -0x10, R_ANAL_VAR_KIND_BPV, "struct something", 0, false, "var_bp");
 	r_anal_function_set_var (f, 0x10, R_ANAL_VAR_KIND_BPV, "uint64_t", 0, true, "arg_bp");
@@ -529,11 +529,13 @@ bool test_anal_var_load() {
 	bool found[3] = { false, false, false };
 	RAnalVarAccess *acc;
 	r_vector_foreach (&v->accesses, acc) {
-		if (acc->offset == 3 && acc->type == R_ANAL_VAR_ACCESS_TYPE_READ && acc->stackptr == 42) {
+		if (acc->offset == 3 && acc->type == R_ANAL_VAR_ACCESS_TYPE_READ && acc->stackptr == 42 && !strcmp(acc->reg, "rax")) {
 			found[0] = true;
-		} else if (acc->offset == 13 && acc->type == (R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE) && acc->stackptr == 13) {
+		} else if (acc->offset == 13 && acc->type == (R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE)
+				&& acc->stackptr == 13 && !strcmp(acc->reg, "rbx")) {
 			found[1] = true;
-		} else if (acc->offset == 23 && acc->type == R_ANAL_VAR_ACCESS_TYPE_WRITE && acc->stackptr == 123) {
+		} else if (acc->offset == 23 && acc->type == R_ANAL_VAR_ACCESS_TYPE_WRITE
+				&& acc->stackptr == 123 && !strcmp(acc->reg, "rcx")) {
 			found[2] = true;
 		}
 	}
@@ -551,6 +553,7 @@ bool test_anal_var_load() {
 	mu_assert_eq (acc->offset, 3, "access offset");
 	mu_assert_eq (acc->type, R_ANAL_VAR_ACCESS_TYPE_WRITE, "access type");
 	mu_assert_eq (acc->stackptr, 321, "access stackptr");
+	mu_assert_streq (acc->reg, "rsp", "access reg");
 	mu_assert ("var used", r_pvector_contains (used, v)); // used at the same var as the reg one
 
 	v = r_anal_function_get_var (f, R_ANAL_VAR_KIND_BPV, -0x10);

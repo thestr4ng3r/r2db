@@ -1482,6 +1482,7 @@ R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_xrefs_save (sdb_ns (db, "xrefs", true), anal);
 	r_serialize_anal_blocks_save (sdb_ns (db, "blocks", true), anal);
 	r_serialize_anal_functions_save (sdb_ns (db, "functions", true), anal);
+	r_serialize_anal_meta_save (sdb_ns (db, "meta", true), anal);
 }
 
 R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
@@ -1516,6 +1517,8 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 		r_anal_block_unref (block);
 	}
 	r_pvector_clear (&orphaned_bbs); // unrefs all
+
+	SUB ("meta", r_serialize_anal_meta_load (subdb, anal, err));
 
 	ret = true;
 beach:

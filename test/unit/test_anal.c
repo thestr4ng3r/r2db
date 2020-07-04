@@ -858,6 +858,13 @@ Sdb *anal_ref_db() {
 	sdb_set (xrefs, "0x42", "[{\"to\":1337,\"type\":\"C\"}]", 0);
 	sdb_set (xrefs, "0x539", "[{\"to\":12648430,\"type\":\"d\"}]", 0);
 
+	Sdb *meta = sdb_ns (db, "meta", true);
+	Sdb *meta_spaces = sdb_ns (meta, "spaces", true);
+	sdb_ns (meta_spaces, "spaces", true);
+	sdb_set (meta_spaces, "spacestack", "[\"*\"]", 0);
+	sdb_set (meta_spaces, "name", "CS", 0);
+	sdb_set (meta, "0x1337", "[{\"type\":\"C\",\"str\":\"some comment\"}]", 0);
+
 	return db;
 }
 
@@ -880,7 +887,7 @@ bool test_anal_save() {
 	r_anal_xrefs_set (anal, 0x42, 1337, R_ANAL_REF_TYPE_CALL);
 	r_anal_xrefs_set (anal, 1337, 0xc0ffee, R_ANAL_REF_TYPE_DATA);
 
-	// TODO: meta
+	r_meta_set_string (anal, R_META_TYPE_COMMENT, 0x1337, "some comment");
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -914,7 +921,8 @@ bool test_anal_load() {
 	mu_assert_eq (r_list_length (anal->fcns), 2, "functions loaded");
 	mu_assert_eq (r_anal_xrefs_count (anal), 2, "xrefs loaded");
 
-	// TODO: meta
+	const char *cmt = r_meta_get_string(anal, R_META_TYPE_COMMENT, 0x1337);
+	mu_assert_streq (cmt, "some comment", "meta");
 	
 	r_anal_free (anal);
 	mu_end;

@@ -1433,7 +1433,6 @@ static bool meta_load_cb(void *user, const char *k, const char *v) {
 			continue;
 		}
 
-		r_meta_set_with_subtype (anal, type, subtype, addr, size, str);
 		RAnalMetaItem *item = R_NEW0 (RAnalMetaItem);
 		if (!item) {
 			break;

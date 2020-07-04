@@ -670,15 +670,15 @@ Sdb *meta_ref_db() {
 	sdb_set(db, "0x20c0", "[{\"size\":32,\"type\":\"s\",\"subtype\":103,\"str\":\"guess\"}]", 0);
 	sdb_set(db, "0x1337",
 			"[{\"size\":16,\"type\":\"d\"},"
-			"{\"size\":16,\"type\":\"c\"},"
-			"{\"size\":16,\"type\":\"s\",\"str\":\"some string\"},"
-			"{\"size\":16,\"type\":\"f\"},"
-			"{\"size\":16,\"type\":\"m\"},"
-			"{\"size\":16,\"type\":\"h\"},"
+			"{\"size\":17,\"type\":\"c\"},"
+			"{\"size\":18,\"type\":\"s\",\"str\":\"some string\"},"
+			"{\"size\":19,\"type\":\"f\"},"
+			"{\"size\":20,\"type\":\"m\"},"
+			"{\"size\":21,\"type\":\"h\"},"
 			"{\"type\":\"C\",\"str\":\"some comment here\"},"
-			"{\"size\":16,\"type\":\"r\"},"
-			"{\"size\":16,\"type\":\"H\"},"
-			"{\"size\":16,\"type\":\"t\"},"
+			"{\"size\":22,\"type\":\"r\"},"
+			"{\"size\":23,\"type\":\"H\"},"
+			"{\"size\":24,\"type\":\"t\"},"
 			"{\"type\":\"C\",\"str\":\"comment in space\",\"space\":\"myspace\"}]", 0);
 	sdb_set(db, "0x2000", "[{\"size\":32,\"type\":\"s\",\"subtype\":97,\"str\":\"latin1\"}]", 0);
 	sdb_set(db, "0x2040", "[{\"size\":32,\"type\":\"s\",\"subtype\":117,\"str\":\"utf16le\"}]", 0);
@@ -692,15 +692,15 @@ bool test_anal_meta_save() {
 	RAnal *anal = r_anal_new ();
 
 	r_meta_set (anal, R_META_TYPE_DATA, 0x1337, 0x10, NULL);
-	r_meta_set (anal, R_META_TYPE_CODE, 0x1337, 0x10, NULL);
-	r_meta_set (anal, R_META_TYPE_STRING, 0x1337, 0x10, "some string");
-	r_meta_set (anal, R_META_TYPE_FORMAT, 0x1337, 0x10, NULL);
-	r_meta_set (anal, R_META_TYPE_MAGIC, 0x1337, 0x10, NULL);
-	r_meta_set (anal, R_META_TYPE_HIDE, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_CODE, 0x1337, 0x11, NULL);
+	r_meta_set (anal, R_META_TYPE_STRING, 0x1337, 0x12, "some string");
+	r_meta_set (anal, R_META_TYPE_FORMAT, 0x1337, 0x13, NULL);
+	r_meta_set (anal, R_META_TYPE_MAGIC, 0x1337, 0x14, NULL);
+	r_meta_set (anal, R_META_TYPE_HIDE, 0x1337, 0x15, NULL);
 	r_meta_set (anal, R_META_TYPE_COMMENT, 0x1337, 1, "some comment here");
-	r_meta_set (anal, R_META_TYPE_RUN, 0x1337, 0x10, NULL);
-	r_meta_set (anal, R_META_TYPE_HIGHLIGHT, 0x1337, 0x10, NULL);
-	r_meta_set (anal, R_META_TYPE_VARTYPE, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_RUN, 0x1337, 0x16, NULL);
+	r_meta_set (anal, R_META_TYPE_HIGHLIGHT, 0x1337, 0x17, NULL);
+	r_meta_set (anal, R_META_TYPE_VARTYPE, 0x1337, 0x18, NULL);
 
 	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_LATIN1, 0x2000, 0x20, "latin1");
 	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_UTF8, 0x2020, 0x20, "utf8");
@@ -733,7 +733,110 @@ bool test_anal_meta_load() {
 	bool succ = r_serialize_anal_meta_load (db, anal, NULL);
 	mu_assert ("load success", succ);
 
-	// TODO: check
+	size_t count = 0;
+	RAnalMetaItem *meta;
+	RIntervalTreeIter it;
+	r_interval_tree_foreach (&anal->meta, it, meta) {
+		(void)meta;
+		count++;
+	}
+	mu_assert_eq (count, 18, "meta count");
+
+	ut64 size;
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_DATA, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x10, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_null (meta->str, "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_CODE, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x11, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_null (meta->str, "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_STRING, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x12, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_streq (meta->str, "some string", "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_FORMAT, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x13, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_null (meta->str, "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_MAGIC, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x14, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_null (meta->str, "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_HIDE, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x15, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_null (meta->str, "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_COMMENT, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 1, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_streq (meta->str, "some comment here", "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_RUN, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x16, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_null (meta->str, "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_HIGHLIGHT, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x17, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_null (meta->str, "meta item string");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_VARTYPE, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x18, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_null (meta->str, "meta item string");
+
+	r_spaces_push (&anal->meta_spaces, "myspace");
+	meta = r_meta_get_at (anal, 0x1337, R_META_TYPE_COMMENT, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 1, "meta item size");
+	mu_assert_eq (meta->subtype, 0, "meta item subtype");
+	mu_assert_streq (meta->str, "comment in space", "meta item string");
+	r_spaces_pop (&anal->meta_spaces);
+
+	meta = r_meta_get_at (anal, 0x2000, R_META_TYPE_STRING, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x20, "meta item size");
+	mu_assert_eq (meta->subtype, R_STRING_ENC_LATIN1, "meta item subtype");
+	mu_assert_streq (meta->str, "latin1", "meta item string");
+	meta = r_meta_get_at (anal, 0x2020, R_META_TYPE_STRING, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x20, "meta item size");
+	mu_assert_eq (meta->subtype, R_STRING_ENC_UTF8, "meta item subtype");
+	mu_assert_streq (meta->str, "utf8", "meta item string");
+	meta = r_meta_get_at (anal, 0x2040, R_META_TYPE_STRING, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x20, "meta item size");
+	mu_assert_eq (meta->subtype, R_STRING_ENC_UTF16LE, "meta item subtype");
+	mu_assert_streq (meta->str, "utf16le", "meta item string");
+	meta = r_meta_get_at (anal, 0x2060, R_META_TYPE_STRING, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x20, "meta item size");
+	mu_assert_eq (meta->subtype, R_STRING_ENC_UTF32LE, "meta item subtype");
+	mu_assert_streq (meta->str, "utf32le", "meta item string");
+	meta = r_meta_get_at (anal, 0x2080, R_META_TYPE_STRING, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x20, "meta item size");
+	mu_assert_eq (meta->subtype, R_STRING_ENC_UTF16BE, "meta item subtype");
+	mu_assert_streq (meta->str, "utf16be", "meta item string");
+	meta = r_meta_get_at (anal, 0x20a0, R_META_TYPE_STRING, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x20, "meta item size");
+	mu_assert_eq (meta->subtype, R_STRING_ENC_UTF32BE, "meta item subtype");
+	mu_assert_streq (meta->str, "utf32be", "meta item string");
+	meta = r_meta_get_at (anal, 0x20c0, R_META_TYPE_STRING, &size);
+	mu_assert_notnull (meta, "meta item");
+	mu_assert_eq (size, 0x20, "meta item size");
+	mu_assert_eq (meta->subtype, R_STRING_ENC_GUESS, "meta item subtype");
+	mu_assert_streq (meta->str, "guess", "meta item string");
 
 	sdb_free (db);
 	r_anal_free (anal);

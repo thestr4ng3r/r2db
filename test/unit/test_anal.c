@@ -843,6 +843,42 @@ bool test_anal_meta_load() {
 	mu_end;
 }
 
+Sdb *hints_ref_db() {
+	Sdb *db = sdb_new0 ();
+	return db;
+}
+
+bool test_anal_hints_save() {
+	RAnal *anal = r_anal_new ();
+
+	// TODO: set some stuff
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_hints_save (db, anal);
+
+	Sdb *expected = hints_ref_db ();
+	assert_sdb_eq (db, expected, "hints save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_hints_load() {
+	RAnal *anal = r_anal_new ();
+
+	Sdb *db = hints_ref_db ();
+
+	bool succ = r_serialize_anal_hints_load (db, anal, NULL);
+	mu_assert ("load success", succ);
+
+	// TODO: check some stuff
+
+	sdb_free (db);
+	r_anal_free (anal);
+	mu_end;
+}
+
 Sdb *anal_ref_db() {
 	Sdb *db = sdb_new0 ();
 
@@ -864,6 +900,9 @@ Sdb *anal_ref_db() {
 	sdb_set (meta_spaces, "spacestack", "[\"*\"]", 0);
 	sdb_set (meta_spaces, "name", "CS", 0);
 	sdb_set (meta, "0x1337", "[{\"type\":\"C\",\"str\":\"some comment\"}]", 0);
+
+	Sdb *hints = sdb_ns (db, "hints", true);
+	// TODO: add some hints
 
 	return db;
 }
@@ -888,6 +927,8 @@ bool test_anal_save() {
 	r_anal_xrefs_set (anal, 1337, 0xc0ffee, R_ANAL_REF_TYPE_DATA);
 
 	r_meta_set_string (anal, R_META_TYPE_COMMENT, 0x1337, "some comment");
+
+	// TODO: add some hints
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -923,6 +964,8 @@ bool test_anal_load() {
 
 	const char *cmt = r_meta_get_string(anal, R_META_TYPE_COMMENT, 0x1337);
 	mu_assert_streq (cmt, "some comment", "meta");
+
+	// TODO: check some hints
 	
 	r_anal_free (anal);
 	mu_end;
@@ -943,6 +986,8 @@ int all_tests() {
 	mu_run_test (test_anal_xrefs_load);
 	mu_run_test (test_anal_meta_save);
 	mu_run_test (test_anal_meta_load);
+	mu_run_test (test_anal_hints_save);
+	mu_run_test (test_anal_hints_load);
 	mu_run_test (test_anal_save);
 	mu_run_test (test_anal_load);
 	return tests_passed != tests_run;

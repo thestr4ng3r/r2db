@@ -3,3 +3,4 @@ cmake-build-*
 .idea
 *.r2db
 compile_commands.json
+.ccls-cache

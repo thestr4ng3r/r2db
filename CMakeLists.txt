@@ -29,8 +29,7 @@ add_library(core_r2db SHARED ${SOURCE})
 set_target_properties(core_r2db PROPERTIES PREFIX "")
 
 find_package(Radare2 REQUIRED)
-target_include_directories(core_r2db PUBLIC ${RADARE2_INCLUDE_DIRS})
-target_link_libraries(core_r2db PUBLIC ${RADARE2_LIBRARIES})
+target_link_libraries(core_r2db PUBLIC Radare2::libr)
 
 find_package(LibArchive REQUIRED)
 target_include_directories(core_r2db PRIVATE ${LibArchive_INCLUDE_DIRS})

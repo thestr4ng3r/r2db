@@ -30,7 +30,7 @@
  *   /hints
  *     0x<addr>={arch?:<str|null>,bits?:<int|null>,toff?:<string>,nword?:<int>,jump?:<ut64>,fail?:<ut64>,newbits?:<int>,
  *               immbase?:<int>,ptr?:<ut64>,ret?:<ut64>,syntax?:<str>,opcode?:<str>,esil?:<str>,optype?:<int>,
- *               size?:<ut64>,frame?:<ut64>,val?:<ut64>}
+ *               size?:<ut64>,frame?:<ut64>,val?:<ut64>,high?:<bool>}
  *
  * RAnalDiff JSON:
  * {type?:"m"|"u", addr:<ut64>, dist:<double>, name?:<str>, size:<ut32>}
@@ -1180,7 +1180,7 @@ static bool xrefs_load_cb(void *user, const char *k, const char *v) {
 	RAnal *anal = user;
 
 	errno = 0;
-	ut64 from = strtoull (k, NULL, 0);;
+	ut64 from = strtoull (k, NULL, 0);
 	if (errno) {
 		return false;
 	}
@@ -1339,7 +1339,7 @@ static bool meta_load_cb(void *user, const char *k, const char *v) {
 	RAnal *anal = user;
 
 	errno = 0;
-	ut64 addr = strtoull (k, NULL, 0);;
+	ut64 addr = strtoull (k, NULL, 0);
 	if (errno) {
 		return false;
 	}
@@ -1624,16 +1624,214 @@ R_API void r_serialize_anal_hints_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal)
 	ht_up_free (acc);
 }
 
-R_API bool r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+enum {
+	HINTS_FIELD_ARCH,
+	HINTS_FIELD_BITS,
+	HINTS_FIELD_IMMBASE,
+	HINTS_FIELD_JUMP,
+	HINTS_FIELD_FAIL,
+	HINTS_FIELD_STACKFRAME,
+	HINTS_FIELD_PTR,
+	HINTS_FIELD_NWORD,
+	HINTS_FIELD_RET,
+	HINTS_FIELD_NEW_BITS,
+	HINTS_FIELD_SIZE,
+	HINTS_FIELD_SYNTAX,
+	HINTS_FIELD_OPTYPE,
+	HINTS_FIELD_OPCODE,
+	HINTS_FIELD_TYPE_OFFSET,
+	HINTS_FIELD_ESIL,
+	HINTS_FIELD_HIGH,
+	HINTS_FIELD_VAL
+};
+
+typedef struct {
+	RAnal *anal;
+	KeyParser *parser;
+} HintsLoadCtx;
+
+static bool hints_load_cb(void *user, const char *k, const char *v) {
+	HintsLoadCtx *ctx = user;
+	RAnal *anal = ctx->anal;
+
+	errno = 0;
+	ut64 addr = strtoull (k, NULL, 0);
+	if (errno) {
+		return false;
+	}
+
+	char *json_str = strdup (v);
+	if (!json_str) {
+		return true;
+	}
+	const nx_json *json = nx_json_parse_utf8 (json_str);
+	if (!json || json->type != NX_JSON_ARRAY) {
+		free (json_str);
+		return false;
+	}
+
+	const nx_json *child;
+	KEY_PARSER_JSON (ctx->parser, json, child, {
+		case HINTS_FIELD_ARCH:
+			r_anal_hint_set_arch (anal, addr, child->type == NX_JSON_STRING ? child->text_value : NULL);
+			break;
+		case HINTS_FIELD_BITS:
+			r_anal_hint_set_bits (anal, addr, child->type == NX_JSON_INTEGER ? (int)child->num.s_value : 0);
+			break;
+		case HINTS_FIELD_IMMBASE:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_immbase (anal, addr, (int)child->num.s_value);
+			break;
+		case HINTS_FIELD_JUMP:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_jump (anal, addr, child->num.u_value);
+			break;
+		case HINTS_FIELD_FAIL:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_fail (anal, addr, child->num.u_value);
+			break;
+		case HINTS_FIELD_STACKFRAME:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_stackframe (anal, addr, child->num.u_value);
+			break;
+		case HINTS_FIELD_PTR:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_pointer (anal, addr, child->num.u_value);
+			break;
+		case HINTS_FIELD_NWORD:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_nword (anal, addr, (int)child->num.s_value);
+			break;
+		case HINTS_FIELD_RET:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_ret (anal, addr, child->num.u_value);
+			break;
+		case HINTS_FIELD_NEW_BITS:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_newbits (anal, addr, (int)child->num.s_value);
+			break;
+		case HINTS_FIELD_SIZE:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_size (anal, addr, child->num.u_value);
+			break;
+		case HINTS_FIELD_SYNTAX:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			r_anal_hint_set_syntax (anal, addr, child->text_value);
+			break;
+		case HINTS_FIELD_OPTYPE:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_type (anal, addr, (int)child->num.s_value);
+			break;
+		case HINTS_FIELD_OPCODE:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			r_anal_hint_set_opcode (anal, addr, child->text_value);
+			break;
+		case HINTS_FIELD_TYPE_OFFSET:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			r_anal_hint_set_offset (anal, addr, child->text_value);
+			break;
+		case HINTS_FIELD_ESIL:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			r_anal_hint_set_esil (anal, addr, child->text_value);
+			break;
+		case HINTS_FIELD_HIGH:
+			if (child->type != NX_JSON_BOOL || !child->num.u_value) {
+				break;
+			}
+			r_anal_hint_set_high (anal, addr);
+			break;
+		case HINTS_FIELD_VAL:
+			if (child->type != NX_JSON_INTEGER) {
+				break;
+			}
+			r_anal_hint_set_val (anal, addr, child->num.u_value);
+			break;
+		default:
+			break;
+	})
+
+	nx_json_free (json);
+	free (json_str);
+
+	return true;
+error:
+	nx_json_free (json);
+	free (json_str);
 	return false;
 }
 
+R_API bool r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	HintsLoadCtx ctx = {
+		.anal = anal,
+		.parser = key_parser_new (),
+	};
+	bool ret;
+	if (!ctx.parser) {
+		SERIALIZE_ERR ("parser init failed");
+		ret = false;
+		goto beach;
+	}
+	key_parser_add (ctx.parser, "arch", HINTS_FIELD_ARCH);
+	key_parser_add (ctx.parser, "bits", HINTS_FIELD_BITS);
+	key_parser_add (ctx.parser, "immbase", HINTS_FIELD_IMMBASE);
+	key_parser_add (ctx.parser, "jump", HINTS_FIELD_JUMP);
+	key_parser_add (ctx.parser, "fail", HINTS_FIELD_FAIL);
+	key_parser_add (ctx.parser, "frame", HINTS_FIELD_STACKFRAME);
+	key_parser_add (ctx.parser, "ptr", HINTS_FIELD_PTR);
+	key_parser_add (ctx.parser, "nword", HINTS_FIELD_NWORD);
+	key_parser_add (ctx.parser, "ret", HINTS_FIELD_RET);
+	key_parser_add (ctx.parser, "newbits", HINTS_FIELD_NEW_BITS);
+	key_parser_add (ctx.parser, "size", HINTS_FIELD_SIZE);
+	key_parser_add (ctx.parser, "syntax", HINTS_FIELD_SYNTAX);
+	key_parser_add (ctx.parser, "optype", HINTS_FIELD_OPTYPE);
+	key_parser_add (ctx.parser, "opcode", HINTS_FIELD_OPCODE);
+	key_parser_add (ctx.parser, "offset", HINTS_FIELD_TYPE_OFFSET);
+	key_parser_add (ctx.parser, "esil", HINTS_FIELD_ESIL);
+	key_parser_add (ctx.parser, "high", HINTS_FIELD_HIGH);
+	key_parser_add (ctx.parser, "val", HINTS_FIELD_VAL);
+	ret = sdb_foreach (db, hints_load_cb, &ctx);
+	if (!ret) {
+		SERIALIZE_ERR ("hints parsing failed");
+	}
+beach:
+	key_parser_free (ctx.parser);
+	return ret;
+}
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_xrefs_save (sdb_ns (db, "xrefs", true), anal);
 	r_serialize_anal_blocks_save (sdb_ns (db, "blocks", true), anal);
 	r_serialize_anal_functions_save (sdb_ns (db, "functions", true), anal);
 	r_serialize_anal_meta_save (sdb_ns (db, "meta", true), anal);
+	r_serialize_anal_hints_save (sdb_ns (db, "hints", true), anal);
 }
 
 R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
@@ -1670,6 +1868,7 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 	r_pvector_clear (&orphaned_bbs); // unrefs all
 
 	SUB ("meta", r_serialize_anal_meta_load (subdb, anal, err));
+	SUB ("hints", r_serialize_anal_hints_load (subdb, anal, err));
 
 	ret = true;
 beach:

@@ -1264,10 +1264,13 @@ R_API void r_serialize_anal_meta_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) 
 			FLUSH
 			pj_reset (j);
 			pj_a (j);
+			count = 0;
 		} else if (!count) {
 			// first address
 			pj_a (j);
 		}
+		count++;
+		addr = node->start;
 		pj_o (j);
 		ut64 size = r_meta_node_size (node);
 		if (size != 1) {
@@ -1372,24 +1375,34 @@ static int meta_load_cb(void *user, const char *k, const char *v) {
 					switch (baby->text_value[0]) {
 					case 'd':
 						type = R_META_TYPE_DATA;
+						break;
 					case 'c':
 						type = R_META_TYPE_CODE;
+						break;
 					case 's':
 						type = R_META_TYPE_STRING;
+						break;
 					case 'f':
 						type = R_META_TYPE_FORMAT;
+						break;
 					case 'm':
 						type = R_META_TYPE_MAGIC;
+						break;
 					case 'h':
 						type = R_META_TYPE_HIDE;
+						break;
 					case 'C':
 						type = R_META_TYPE_COMMENT;
+						break;
 					case 'r':
 						type = R_META_TYPE_RUN;
+						break;
 					case 'H':
 						type = R_META_TYPE_HIGHLIGHT;
+						break;
 					case 't':
 						type = R_META_TYPE_VARTYPE;
+						break;
 					default:
 						break;
 					}
@@ -1420,8 +1433,24 @@ static int meta_load_cb(void *user, const char *k, const char *v) {
 			continue;
 		}
 
-		// TODO: set space here
 		r_meta_set_with_subtype (anal, type, subtype, addr, size, str);
+		RAnalMetaItem *item = R_NEW0 (RAnalMetaItem);
+		if (!item) {
+			break;
+		}
+		item->type = type;
+		item->subtype = subtype;
+		item->space = space_name ? r_spaces_get (&anal->meta_spaces, space_name) : NULL;
+		item->str = str ? strdup (str) : NULL;
+		if (str && !item->str) {
+			free (item);
+			continue;
+		}
+		ut64 end = addr + size - 1;
+		if (end < addr) {
+			end = UT64_MAX;
+		}
+		r_interval_tree_insert (&anal->meta, addr, end, item);
 	}
 
 	nx_json_free (json);

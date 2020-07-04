@@ -660,6 +660,86 @@ bool test_anal_xrefs_load() {
 	mu_end;
 }
 
+Sdb *meta_ref_db() {
+	Sdb *db = sdb_new0 ();
+	Sdb *spaces_db = sdb_ns (db, "spaces", true);
+	sdb_set (spaces_db, "name", "CS", 0);
+	sdb_set (spaces_db, "spacestack", "[\"*\"]", 0);
+	sdb_set (sdb_ns (spaces_db, "spaces", true), "myspace", "s", 0);
+	sdb_set(db, "0x20a0", "[{\"size\":32,\"type\":\"s\",\"subtype\":66,\"str\":\"utf32be\"}]", 0);
+	sdb_set(db, "0x20c0", "[{\"size\":32,\"type\":\"s\",\"subtype\":103,\"str\":\"guess\"}]", 0);
+	sdb_set(db, "0x1337",
+			"[{\"size\":16,\"type\":\"d\"},"
+			"{\"size\":16,\"type\":\"c\"},"
+			"{\"size\":16,\"type\":\"s\",\"str\":\"some string\"},"
+			"{\"size\":16,\"type\":\"f\"},"
+			"{\"size\":16,\"type\":\"m\"},"
+			"{\"size\":16,\"type\":\"h\"},"
+			"{\"type\":\"C\",\"str\":\"some comment here\"},"
+			"{\"size\":16,\"type\":\"r\"},"
+			"{\"size\":16,\"type\":\"H\"},"
+			"{\"size\":16,\"type\":\"t\"},"
+			"{\"type\":\"C\",\"str\":\"comment in space\",\"space\":\"myspace\"}]", 0);
+	sdb_set(db, "0x2000", "[{\"size\":32,\"type\":\"s\",\"subtype\":97,\"str\":\"latin1\"}]", 0);
+	sdb_set(db, "0x2040", "[{\"size\":32,\"type\":\"s\",\"subtype\":117,\"str\":\"utf16le\"}]", 0);
+	sdb_set(db, "0x2080", "[{\"size\":32,\"type\":\"s\",\"subtype\":98,\"str\":\"utf16be\"}]", 0);
+	sdb_set(db, "0x2020", "[{\"size\":32,\"type\":\"s\",\"subtype\":56,\"str\":\"utf8\"}]", 0);
+	sdb_set(db, "0x2060", "[{\"size\":32,\"type\":\"s\",\"subtype\":85,\"str\":\"utf32le\"}]", 0);
+	return db;
+}
+
+bool test_anal_meta_save() {
+	RAnal *anal = r_anal_new ();
+
+	r_meta_set (anal, R_META_TYPE_DATA, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_CODE, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_STRING, 0x1337, 0x10, "some string");
+	r_meta_set (anal, R_META_TYPE_FORMAT, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_MAGIC, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_HIDE, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_COMMENT, 0x1337, 1, "some comment here");
+	r_meta_set (anal, R_META_TYPE_RUN, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_HIGHLIGHT, 0x1337, 0x10, NULL);
+	r_meta_set (anal, R_META_TYPE_VARTYPE, 0x1337, 0x10, NULL);
+
+	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_LATIN1, 0x2000, 0x20, "latin1");
+	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_UTF8, 0x2020, 0x20, "utf8");
+	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_UTF16LE, 0x2040, 0x20, "utf16le");
+	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_UTF32LE, 0x2060, 0x20, "utf32le");
+	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_UTF16BE, 0x2080, 0x20, "utf16be");
+	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_UTF32BE, 0x20a0, 0x20, "utf32be");
+	r_meta_set_with_subtype (anal, R_META_TYPE_STRING, R_STRING_ENC_GUESS, 0x20c0, 0x20, "guess");
+
+	r_spaces_push (&anal->meta_spaces, "myspace");
+	r_meta_set (anal, R_META_TYPE_COMMENT, 0x1337, 1, "comment in space");
+	r_spaces_pop (&anal->meta_spaces);
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_meta_save (db, anal);
+
+	Sdb *expected = meta_ref_db ();
+	assert_sdb_eq (db, expected, "meta save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_meta_load() {
+	RAnal *anal = r_anal_new ();
+
+	Sdb *db = meta_ref_db ();
+
+	bool succ = r_serialize_anal_meta_load (db, anal, NULL);
+	mu_assert ("load success", succ);
+
+	// TODO: check
+
+	sdb_free (db);
+	r_anal_free (anal);
+	mu_end;
+}
+
 Sdb *anal_ref_db() {
 	Sdb *db = sdb_new0 ();
 
@@ -697,6 +777,8 @@ bool test_anal_save() {
 	r_anal_xrefs_set (anal, 0x42, 1337, R_ANAL_REF_TYPE_CALL);
 	r_anal_xrefs_set (anal, 1337, 0xc0ffee, R_ANAL_REF_TYPE_DATA);
 
+	// TODO: meta
+
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
 
@@ -728,6 +810,8 @@ bool test_anal_load() {
 	mu_assert_eq (blocks_count, 2, "blocks loaded");
 	mu_assert_eq (r_list_length (anal->fcns), 2, "functions loaded");
 	mu_assert_eq (r_anal_xrefs_count (anal), 2, "xrefs loaded");
+
+	// TODO: meta
 	
 	r_anal_free (anal);
 	mu_end;
@@ -746,6 +830,8 @@ int all_tests() {
 	mu_run_test (test_anal_var_load);
 	mu_run_test (test_anal_xrefs_save);
 	mu_run_test (test_anal_xrefs_load);
+	mu_run_test (test_anal_meta_save);
+	mu_run_test (test_anal_meta_load);
 	mu_run_test (test_anal_save);
 	mu_run_test (test_anal_load);
 	return tests_passed != tests_run;

@@ -915,8 +915,9 @@ Sdb *hints_ref_db() {
 	sdb_set (db, "0x1043", "{\"optype\":45}", 0);
 	sdb_set (db, "0x1044", "{\"optype\":46}", 0);
 	sdb_set (db, "0x1045", "{\"optype\":47}", 0);
-	sdb_set (db, "0x100", "{\"arch\":\"arm\"}", 0);
+	sdb_set (db, "0x100", "{\"arch\":\"arm\",\"bits\":16}", 0);
 	sdb_set (db, "0x120", "{\"arch\":null}", 0);
+	sdb_set (db, "0x130", "{\"bits\":0}", 0);
 	sdb_set (db, "0x200", "{\"immbase\":10}", 0);
 	sdb_set (db, "0x210", "{\"jump\":1337,\"fail\":1234}", 0);
 	sdb_set (db, "0x220", "{\"syntax\":\"intel\"}", 0);
@@ -946,7 +947,7 @@ static int all_optypes[] = {
 	R_ANAL_OP_TYPE_TRAP, R_ANAL_OP_TYPE_SWI, R_ANAL_OP_TYPE_CSWI, R_ANAL_OP_TYPE_UPUSH, R_ANAL_OP_TYPE_RPUSH,
 	R_ANAL_OP_TYPE_PUSH, R_ANAL_OP_TYPE_POP, R_ANAL_OP_TYPE_CMP, R_ANAL_OP_TYPE_ACMP, R_ANAL_OP_TYPE_ADD,
 	R_ANAL_OP_TYPE_SUB, R_ANAL_OP_TYPE_IO, R_ANAL_OP_TYPE_MUL, R_ANAL_OP_TYPE_DIV, R_ANAL_OP_TYPE_SHR,
-	R_ANAL_OP_TYPE_SHL,	R_ANAL_OP_TYPE_SAL, R_ANAL_OP_TYPE_SAR, R_ANAL_OP_TYPE_OR, R_ANAL_OP_TYPE_AND,
+	R_ANAL_OP_TYPE_SHL, R_ANAL_OP_TYPE_SAL, R_ANAL_OP_TYPE_SAR, R_ANAL_OP_TYPE_OR, R_ANAL_OP_TYPE_AND,
 	R_ANAL_OP_TYPE_XOR, R_ANAL_OP_TYPE_NOR, R_ANAL_OP_TYPE_NOT, R_ANAL_OP_TYPE_STORE, R_ANAL_OP_TYPE_LOAD,
 	R_ANAL_OP_TYPE_LEA, R_ANAL_OP_TYPE_LEAVE, R_ANAL_OP_TYPE_ROR, R_ANAL_OP_TYPE_ROL, R_ANAL_OP_TYPE_XCHG,
 	R_ANAL_OP_TYPE_MOD, R_ANAL_OP_TYPE_SWITCH, R_ANAL_OP_TYPE_CASE, R_ANAL_OP_TYPE_LENGTH, R_ANAL_OP_TYPE_CAST,
@@ -995,6 +996,21 @@ bool test_anal_hints_save() {
 	mu_end;
 }
 
+static bool addr_hints_count_cb(ut64 addr, const RVector/*<const RAnalAddrHintRecord>*/ *records, void *user) {
+	(*(size_t *)user) += records->len;
+	return true;
+}
+
+static bool arch_hints_count_cb(ut64 addr, R_NULLABLE const char *arch, void *user) {
+	(*(size_t *)user)++;
+	return true;
+}
+
+static bool bits_hints_count_cb(ut64 addr, int bits, void *user) {
+	(*(size_t *)user)++;
+	return true;
+}
+
 bool test_anal_hints_load() {
 	RAnal *anal = r_anal_new ();
 
@@ -1003,7 +1019,60 @@ bool test_anal_hints_load() {
 	bool succ = r_serialize_anal_hints_load (db, anal, NULL);
 	mu_assert ("load success", succ);
 
-	// TODO: check some stuff
+	size_t count = 0;
+	r_anal_addr_hints_foreach (anal, addr_hints_count_cb, &count);
+	r_anal_arch_hints_foreach (anal, arch_hints_count_cb, &count);
+	r_anal_bits_hints_foreach (anal, bits_hints_count_cb, &count);
+	mu_assert_eq (count, 19 + ALL_OPTYPES_COUNT, "hints count");
+
+	ut64 addr;
+	const char *arch = r_anal_hint_arch_at (anal, 0x100, &addr);
+	mu_assert_streq (arch, "arm", "arch hint");
+	mu_assert_eq (addr, 0x100, "arch hint addr");
+	int bits = r_anal_hint_bits_at(anal, 0x100, &addr);
+	mu_assert_eq (bits, 16, "bits hint");
+	mu_assert_eq (addr, 0x100, "bits hint addr");
+	arch = r_anal_hint_arch_at (anal, 0x120, &addr);
+	mu_assert_null (arch, "arch hint");
+	mu_assert_eq (addr, 0x120, "arch hint addr");
+	bits = r_anal_hint_bits_at(anal, 0x100, &addr);
+	mu_assert_eq (bits, 16, "bits hint");
+	mu_assert_eq (addr, 0x100, "bits hint addr");
+
+#define assert_addr_hint(addr, tp, check) do { \
+		const RVector/*<const RAnalAddrHintRecord>*/ *hints = r_anal_addr_hints_at(anal, addr); \
+		const RAnalAddrHintRecord *record; \
+		bool found = false; \
+		r_vector_foreach (hints, record) { \
+			if (record->type == R_ANAL_ADDR_HINT_TYPE_##tp) { \
+				check; \
+				found = true; \
+				break; \
+			} \
+		} \
+		mu_assert ("addr hint", found); \
+	} while(0) 
+
+	assert_addr_hint (0x200, IMMBASE, mu_assert_eq (record->immbase, 10, "immbase hint"));
+	assert_addr_hint (0x210, JUMP, mu_assert_eq (record->jump, 1337, "jump hint"));
+	assert_addr_hint (0x210, FAIL, mu_assert_eq (record->fail, 1234, "fail hint"));
+	assert_addr_hint (0x230, STACKFRAME, mu_assert_eq (record->stackframe, 0x30, "stackframe hint"));
+	assert_addr_hint (0x240, PTR, mu_assert_eq (record->ptr, 4321, "ptr hint"));
+	assert_addr_hint (0x250, NWORD, mu_assert_eq (record->nword, 3, "nword hint"));
+	assert_addr_hint (0x260, RET, mu_assert_eq (record->retval, 666, "ret hint"));
+	assert_addr_hint (0x270, NEW_BITS, mu_assert_eq (record->newbits, 32, "newbits hint"));
+	assert_addr_hint (0x280, SIZE, mu_assert_eq (record->size, 7, "size hint"));
+	assert_addr_hint (0x220, SYNTAX, mu_assert_streq (record->syntax, "intel", "syntax hint"));
+	assert_addr_hint (0x290, OPCODE, mu_assert_streq (record->opcode, "mov", "opcode hint"));
+	assert_addr_hint (0x2a0, TYPE_OFFSET, mu_assert_streq (record->type_offset, "sometype", "type offset hint"));
+	assert_addr_hint (0x2b0, ESIL, mu_assert_streq (record->esil, "13,29,+", "esil hint"));
+	assert_addr_hint (0x2c0, HIGH,);
+	assert_addr_hint (0x2d0, VAL, mu_assert_eq (record->val, 54323, "val hint"));
+
+	size_t i;
+	for (i = 0; i < ALL_OPTYPES_COUNT; i++) {
+		assert_addr_hint (0x1000 + i, OPTYPE, mu_assert_eq (record->optype, all_optypes[i], "optype hint"));
+	}
 
 	sdb_free (db);
 	r_anal_free (anal);
@@ -1033,7 +1102,7 @@ Sdb *anal_ref_db() {
 	sdb_set (meta, "0x1337", "[{\"type\":\"C\",\"str\":\"some comment\"}]", 0);
 
 	Sdb *hints = sdb_ns (db, "hints", true);
-	// TODO: add some hints
+	sdb_set (hints, "0x10e1", "{\"arch\":\"arm\"}", 0);
 
 	return db;
 }
@@ -1059,7 +1128,7 @@ bool test_anal_save() {
 
 	r_meta_set_string (anal, R_META_TYPE_COMMENT, 0x1337, "some comment");
 
-	// TODO: add some hints
+	r_anal_hint_set_arch (anal, 4321, "arm");
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -1080,6 +1149,8 @@ bool test_anal_load() {
 	sdb_free (db);
 	mu_assert ("load success", succ);
 
+	// all tested in detail by dedicated tests, we only check here
+	// if the things are loaded at all when loading a whole anal.
 	size_t blocks_count = 0;
 	RBIter iter;
 	RAnalBlock *block;
@@ -1088,7 +1159,6 @@ bool test_anal_load() {
 		blocks_count++;
 	}
 
-	// tested in detail by dedicated tests
 	mu_assert_eq (blocks_count, 2, "blocks loaded");
 	mu_assert_eq (r_list_length (anal->fcns), 2, "functions loaded");
 	mu_assert_eq (r_anal_xrefs_count (anal), 2, "xrefs loaded");
@@ -1096,8 +1166,9 @@ bool test_anal_load() {
 	const char *cmt = r_meta_get_string(anal, R_META_TYPE_COMMENT, 0x1337);
 	mu_assert_streq (cmt, "some comment", "meta");
 
-	// TODO: check some hints
-	
+	const char *hint = r_anal_hint_arch_at (anal, 4321, NULL);
+	mu_assert_streq (hint, "arm", "hint");
+
 	r_anal_free (anal);
 	mu_end;
 }

@@ -1498,7 +1498,7 @@ static void hints_at_addr_kv_free(HtUPKv *kv) {
 static HintsAtAddr *hints_at_addr(HtUP *acc, ut64 addr) {
 	HintsAtAddr *h = ht_up_find (acc, addr, NULL);
 	if (h) {
-		return NULL;
+		return h;
 	}
 	h = R_NEW0 (HintsAtAddr);
 	if (!h) {
@@ -1819,7 +1819,7 @@ R_API bool r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal,
 	key_parser_add (ctx.parser, "syntax", HINTS_FIELD_SYNTAX);
 	key_parser_add (ctx.parser, "optype", HINTS_FIELD_OPTYPE);
 	key_parser_add (ctx.parser, "opcode", HINTS_FIELD_OPCODE);
-	key_parser_add (ctx.parser, "offset", HINTS_FIELD_TYPE_OFFSET);
+	key_parser_add (ctx.parser, "toff", HINTS_FIELD_TYPE_OFFSET);
 	key_parser_add (ctx.parser, "esil", HINTS_FIELD_ESIL);
 	key_parser_add (ctx.parser, "high", HINTS_FIELD_HIGH);
 	key_parser_add (ctx.parser, "val", HINTS_FIELD_VAL);

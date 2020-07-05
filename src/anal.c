@@ -1539,6 +1539,10 @@ static bool bits_hint_acc_cb(ut64 addr, int bits, void *user) {
 
 static bool hints_acc_store_cb(void *user, const ut64 addr, const void *v) {
 	const HintsAtAddr *h = v;
+	char key[0x20];
+	if (snprintf (key, sizeof (key), "0x%"PFMT64x, addr) < 0) {
+		return false;
+	}
 	Sdb *db = user;
 	PJ *j = pj_new();
 	if (!j) {
@@ -1612,6 +1616,8 @@ static bool hints_acc_store_cb(void *user, const ut64 addr, const void *v) {
 		}
 	}
 	pj_end (j);
+	sdb_set (db, key, pj_string (j), 0);
+	pj_free (j);
 	return true;
 }
 
@@ -1620,7 +1626,7 @@ R_API void r_serialize_anal_hints_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal)
 	r_anal_addr_hints_foreach (anal, addr_hint_acc_cb, acc);
 	r_anal_arch_hints_foreach (anal, arch_hint_acc_cb, acc);
 	r_anal_bits_hints_foreach (anal, bits_hint_acc_cb, acc);
-	ht_up_foreach (acc, NULL, db);
+	ht_up_foreach (acc, hints_acc_store_cb, db);
 	ht_up_free (acc);
 }
 
@@ -1665,7 +1671,7 @@ static bool hints_load_cb(void *user, const char *k, const char *v) {
 		return true;
 	}
 	const nx_json *json = nx_json_parse_utf8 (json_str);
-	if (!json || json->type != NX_JSON_ARRAY) {
+	if (!json || json->type != NX_JSON_OBJECT) {
 		free (json_str);
 		return false;
 	}

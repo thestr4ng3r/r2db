@@ -845,13 +845,144 @@ bool test_anal_meta_load() {
 
 Sdb *hints_ref_db() {
 	Sdb *db = sdb_new0 ();
+	sdb_set (db, "0x1000", "{\"optype\":-2147483648}", 0);
+	sdb_set (db, "0x1001", "{\"optype\":1073741824}", 0);
+	sdb_set (db, "0x1002", "{\"optype\":536870912}", 0);
+	sdb_set (db, "0x1003", "{\"optype\":268435456}", 0);
+	sdb_set (db, "0x1004", "{\"optype\":134217728}", 0);
+	sdb_set (db, "0x1005", "{\"optype\":0}", 0);
+	sdb_set (db, "0x1006", "{\"optype\":1}", 0);
+	sdb_set (db, "0x1007", "{\"optype\":2}", 0);
+	sdb_set (db, "0x1008", "{\"optype\":268435458}", 0);
+	sdb_set (db, "0x1009", "{\"optype\":134217730}", 0);
+	sdb_set (db, "0x100a", "{\"optype\":402653186}", 0);
+	sdb_set (db, "0x100b", "{\"optype\":-2147483647}", 0);
+	sdb_set (db, "0x100c", "{\"optype\":-1879048191}", 0);
+	sdb_set (db, "0x100d", "{\"optype\":536870913}", 0);
+	sdb_set (db, "0x100e", "{\"optype\":-1610612735}", 0);
+	sdb_set (db, "0x100f", "{\"optype\":-2147483646}", 0);
+	sdb_set (db, "0x1010", "{\"optype\":3}", 0);
+	sdb_set (db, "0x1011", "{\"optype\":4}", 0);
+	sdb_set (db, "0x1012", "{\"optype\":268435460}", 0);
+	sdb_set (db, "0x1013", "{\"optype\":134217732}", 0);
+	sdb_set (db, "0x1014", "{\"optype\":402653188}", 0);
+	sdb_set (db, "0x1015", "{\"optype\":-2147483645}", 0);
+	sdb_set (db, "0x1016", "{\"optype\":-2147483644}", 0);
+	sdb_set (db, "0x1017", "{\"optype\":5}", 0);
+	sdb_set (db, "0x1018", "{\"optype\":-2147483643}", 0);
+	sdb_set (db, "0x1019", "{\"optype\":6}", 0);
+	sdb_set (db, "0x101a", "{\"optype\":7}", 0);
+	sdb_set (db, "0x101b", "{\"optype\":8}", 0);
+	sdb_set (db, "0x101c", "{\"optype\":9}", 0);
+	sdb_set (db, "0x101d", "{\"optype\":-2147483639}", 0);
+	sdb_set (db, "0x101e", "{\"optype\":10}", 0);
+	sdb_set (db, "0x101f", "{\"optype\":11}", 0);
+	sdb_set (db, "0x1020", "{\"optype\":-2147483637}", 0);
+	sdb_set (db, "0x1021", "{\"optype\":12}", 0);
+	sdb_set (db, "0x1022", "{\"optype\":268435468}", 0);
+	sdb_set (db, "0x1023", "{\"optype\":13}", 0);
+	sdb_set (db, "0x1024", "{\"optype\":14}", 0);
+	sdb_set (db, "0x1025", "{\"optype\":15}", 0);
+	sdb_set (db, "0x1026", "{\"optype\":16}", 0);
+	sdb_set (db, "0x1027", "{\"optype\":17}", 0);
+	sdb_set (db, "0x1028", "{\"optype\":18}", 0);
+	sdb_set (db, "0x1029", "{\"optype\":19}", 0);
+	sdb_set (db, "0x102a", "{\"optype\":20}", 0);
+	sdb_set (db, "0x102b", "{\"optype\":21}", 0);
+	sdb_set (db, "0x102c", "{\"optype\":22}", 0);
+	sdb_set (db, "0x102d", "{\"optype\":23}", 0);
+	sdb_set (db, "0x102e", "{\"optype\":24}", 0);
+	sdb_set (db, "0x102f", "{\"optype\":25}", 0);
+	sdb_set (db, "0x1030", "{\"optype\":26}", 0);
+	sdb_set (db, "0x1031", "{\"optype\":27}", 0);
+	sdb_set (db, "0x1032", "{\"optype\":28}", 0);
+	sdb_set (db, "0x1033", "{\"optype\":29}", 0);
+	sdb_set (db, "0x1034", "{\"optype\":30}", 0);
+	sdb_set (db, "0x1035", "{\"optype\":31}", 0);
+	sdb_set (db, "0x1036", "{\"optype\":32}", 0);
+	sdb_set (db, "0x1037", "{\"optype\":33}", 0);
+	sdb_set (db, "0x1038", "{\"optype\":34}", 0);
+	sdb_set (db, "0x1039", "{\"optype\":35}", 0);
+	sdb_set (db, "0x103a", "{\"optype\":36}", 0);
+	sdb_set (db, "0x103b", "{\"optype\":37}", 0);
+	sdb_set (db, "0x103c", "{\"optype\":38}", 0);
+	sdb_set (db, "0x103d", "{\"optype\":39}", 0);
+	sdb_set (db, "0x103e", "{\"optype\":40}", 0);
+	sdb_set (db, "0x103f", "{\"optype\":41}", 0);
+	sdb_set (db, "0x1040", "{\"optype\":42}", 0);
+	sdb_set (db, "0x1041", "{\"optype\":43}", 0);
+	sdb_set (db, "0x1042", "{\"optype\":44}", 0);
+	sdb_set (db, "0x1043", "{\"optype\":45}", 0);
+	sdb_set (db, "0x1044", "{\"optype\":46}", 0);
+	sdb_set (db, "0x1045", "{\"optype\":47}", 0);
+	sdb_set (db, "0x100", "{\"arch\":\"arm\"}", 0);
+	sdb_set (db, "0x120", "{\"arch\":null}", 0);
+	sdb_set (db, "0x200", "{\"immbase\":10}", 0);
+	sdb_set (db, "0x210", "{\"jump\":1337,\"fail\":1234}", 0);
+	sdb_set (db, "0x220", "{\"syntax\":\"intel\"}", 0);
+	sdb_set (db, "0x230", "{\"frame\":48}", 0);
+	sdb_set (db, "0x240", "{\"ptr\":4321}", 0);
+	sdb_set (db, "0x250", "{\"nword\":3}", 0);
+	sdb_set (db, "0x260", "{\"ret\":666}", 0);
+	sdb_set (db, "0x270", "{\"newbits\":32}", 0);
+	sdb_set (db, "0x280", "{\"size\":7}", 0);
+	sdb_set (db, "0x290", "{\"opcode\":\"mov\"}", 0);
+	sdb_set (db, "0x2a0", "{\"toff\":\"sometype\"}", 0);
+	sdb_set (db, "0x2b0", "{\"esil\":\"13,29,+\"}", 0);
+	sdb_set (db, "0x2c0", "{\"high\":true}", 0);
+	sdb_set (db, "0x2d0", "{\"val\":54323}", 0);
 	return db;
 }
+
+// All of these optypes need to be correctly loaded from potentiall older projects
+// So changing anything here will require a migration pass!
+static int all_optypes[] = {
+	R_ANAL_OP_TYPE_COND, R_ANAL_OP_TYPE_REP, R_ANAL_OP_TYPE_MEM, R_ANAL_OP_TYPE_REG, R_ANAL_OP_TYPE_IND,
+	R_ANAL_OP_TYPE_NULL, R_ANAL_OP_TYPE_JMP, R_ANAL_OP_TYPE_UJMP, R_ANAL_OP_TYPE_RJMP, R_ANAL_OP_TYPE_IJMP,
+	R_ANAL_OP_TYPE_IRJMP, R_ANAL_OP_TYPE_CJMP, R_ANAL_OP_TYPE_RCJMP, R_ANAL_OP_TYPE_MJMP, R_ANAL_OP_TYPE_MCJMP,
+	R_ANAL_OP_TYPE_UCJMP, R_ANAL_OP_TYPE_CALL, R_ANAL_OP_TYPE_UCALL, R_ANAL_OP_TYPE_RCALL, R_ANAL_OP_TYPE_ICALL,
+	R_ANAL_OP_TYPE_IRCALL, R_ANAL_OP_TYPE_CCALL, R_ANAL_OP_TYPE_UCCALL, R_ANAL_OP_TYPE_RET, R_ANAL_OP_TYPE_CRET,
+	R_ANAL_OP_TYPE_ILL, R_ANAL_OP_TYPE_UNK, R_ANAL_OP_TYPE_NOP, R_ANAL_OP_TYPE_MOV, R_ANAL_OP_TYPE_CMOV,
+	R_ANAL_OP_TYPE_TRAP, R_ANAL_OP_TYPE_SWI, R_ANAL_OP_TYPE_CSWI, R_ANAL_OP_TYPE_UPUSH, R_ANAL_OP_TYPE_RPUSH,
+	R_ANAL_OP_TYPE_PUSH, R_ANAL_OP_TYPE_POP, R_ANAL_OP_TYPE_CMP, R_ANAL_OP_TYPE_ACMP, R_ANAL_OP_TYPE_ADD,
+	R_ANAL_OP_TYPE_SUB, R_ANAL_OP_TYPE_IO, R_ANAL_OP_TYPE_MUL, R_ANAL_OP_TYPE_DIV, R_ANAL_OP_TYPE_SHR,
+	R_ANAL_OP_TYPE_SHL,	R_ANAL_OP_TYPE_SAL, R_ANAL_OP_TYPE_SAR, R_ANAL_OP_TYPE_OR, R_ANAL_OP_TYPE_AND,
+	R_ANAL_OP_TYPE_XOR, R_ANAL_OP_TYPE_NOR, R_ANAL_OP_TYPE_NOT, R_ANAL_OP_TYPE_STORE, R_ANAL_OP_TYPE_LOAD,
+	R_ANAL_OP_TYPE_LEA, R_ANAL_OP_TYPE_LEAVE, R_ANAL_OP_TYPE_ROR, R_ANAL_OP_TYPE_ROL, R_ANAL_OP_TYPE_XCHG,
+	R_ANAL_OP_TYPE_MOD, R_ANAL_OP_TYPE_SWITCH, R_ANAL_OP_TYPE_CASE, R_ANAL_OP_TYPE_LENGTH, R_ANAL_OP_TYPE_CAST,
+	R_ANAL_OP_TYPE_NEW, R_ANAL_OP_TYPE_ABS, R_ANAL_OP_TYPE_CPL, R_ANAL_OP_TYPE_CRYPTO, R_ANAL_OP_TYPE_SYNC
+};
+
+#define ALL_OPTYPES_COUNT (sizeof(all_optypes) / sizeof(int))
 
 bool test_anal_hints_save() {
 	RAnal *anal = r_anal_new ();
 
-	// TODO: set some stuff
+	r_anal_hint_set_arch (anal, 0x100, "arm");
+	r_anal_hint_set_bits (anal, 0x100, 16);
+	r_anal_hint_set_arch (anal, 0x120, NULL);
+	r_anal_hint_set_bits (anal, 0x130, 0);
+
+	r_anal_hint_set_immbase (anal, 0x200, 10);
+	r_anal_hint_set_jump (anal, 0x210, 1337);
+	r_anal_hint_set_fail (anal, 0x210, 1234);
+	r_anal_hint_set_stackframe (anal, 0x230, 0x30);
+	r_anal_hint_set_pointer (anal, 0x240, 4321);
+	r_anal_hint_set_nword (anal, 0x250, 3);
+	r_anal_hint_set_ret (anal, 0x260, 666);
+	r_anal_hint_set_newbits (anal, 0x270, 32);
+	r_anal_hint_set_size (anal, 0x280, 7);
+	r_anal_hint_set_syntax (anal, 0x220, "intel");
+	r_anal_hint_set_opcode (anal, 0x290, "mov");
+	r_anal_hint_set_offset (anal, 0x2a0, "sometype");
+	r_anal_hint_set_esil (anal, 0x2b0, "13,29,+");
+	r_anal_hint_set_high (anal, 0x2c0);
+	r_anal_hint_set_val (anal, 0x2d0, 54323);
+
+	size_t i;
+	for (i = 0; i < ALL_OPTYPES_COUNT; i++) {
+		r_anal_hint_set_type (anal, 0x1000 + i, all_optypes[i]);
+	}
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_hints_save (db, anal);

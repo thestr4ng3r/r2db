@@ -42,7 +42,7 @@
  * {addr:<ut64>, jump:<ut64>, value:<ut64>}
  *
  * RAnalVar JSON:
- * {name:<str>, type:<str>, kind:"s|b|r", arg?:<bool>, delta?:<st64>, reg?:<str>,
+ * {name:<str>, type:<str>, kind:"s|b|r", arg?:<bool>, delta?:<st64>, reg?:<str>, cmt?:<str>,
  *   accs?: [{off:<st64>, type:"r|w|rw", reg:<str>, sp?:<st64>}]}
  *
  */
@@ -579,6 +579,9 @@ R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
 	if (var->isarg) {
 		pj_kb (j, "arg", true);
 	}
+	if (var->comment) {
+		pj_ks (j, "cmt", var->comment);
+	}
 	if (!r_vector_empty (&var->accesses)) {
 		pj_ka (j, "accs");
 		RAnalVarAccess *acc;
@@ -600,7 +603,6 @@ R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
 				pj_kn (j, "sp", acc->stackptr);
 			}
 			if (acc->reg) {
-				r_return_if_fail(321);
 				pj_ks (j, "reg", acc->reg);
 			} else {
 				r_warn_if_reached();
@@ -619,6 +621,7 @@ enum {
 	VAR_FIELD_ARG,
 	VAR_FIELD_DELTA,
 	VAR_FIELD_REG,
+	VAR_FIELD_COMMENT,
 	VAR_FIELD_ACCS
 };
 
@@ -633,6 +636,7 @@ R_API RSerializeAnalVarParser r_serialize_anal_var_parser_new() {
 	key_parser_add (parser, "arg", VAR_FIELD_ARG);
 	key_parser_add (parser, "delta", VAR_FIELD_DELTA);
 	key_parser_add (parser, "reg", VAR_FIELD_REG);
+	key_parser_add (parser, "cmt", VAR_FIELD_COMMENT);
 	key_parser_add (parser, "accs", VAR_FIELD_ACCS);
 	return parser;
 }
@@ -651,6 +655,7 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 	bool arg = false;
 	st64 delta = ST64_MAX;
 	const char *regname = NULL;
+	const char *comment = NULL;
 	RVector accesses;
 	r_vector_init (&accesses, sizeof (RAnalVarAccess), NULL, NULL);
 
@@ -706,6 +711,12 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 				break;
 			}
 			regname = child->text_value;
+			break;
+		case VAR_FIELD_COMMENT:
+			if (child->type != NX_JSON_STRING) {
+				break;
+			}
+			comment = child->text_value;
 			break;
 		case VAR_FIELD_ACCS: {
 			if (child->type != NX_JSON_ARRAY) {
@@ -780,6 +791,10 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 	ret = r_anal_function_set_var (fcn, delta, kind, type, 0, arg, name);
 	if (!ret) {
 		goto beach;
+	}
+	if (comment) {
+		free (ret->comment);
+		ret->comment = strdup (comment);
 	}
 	RAnalVarAccess *acc;
 	r_vector_foreach (&accesses, acc) {

@@ -467,7 +467,7 @@ Sdb *vars_ref_db() {
 		"{\"name\":\"arg_rax\",\"type\":\"int64_t\",\"kind\":\"r\",\"reg\":\"rax\",\"arg\":true,\"accs\":[{\"off\":3,\"type\":\"r\",\"sp\":42,\"reg\":\"rax\"},{\"off\":13,\"type\":\"rw\",\"sp\":13,\"reg\":\"rbx\"},{\"off\":23,\"type\":\"w\",\"sp\":123,\"reg\":\"rcx\"}]},"
 		"{\"name\":\"var_sp\",\"type\":\"const char *\",\"kind\":\"s\",\"delta\":16,\"accs\":[{\"off\":3,\"type\":\"w\",\"sp\":321,\"reg\":\"rsp\"}]},"
 		"{\"name\":\"var_bp\",\"type\":\"struct something\",\"kind\":\"b\",\"delta\":-16},"
-		"{\"name\":\"arg_bp\",\"type\":\"uint64_t\",\"kind\":\"b\",\"delta\":16,\"arg\":true}]}", 0);
+		"{\"name\":\"arg_bp\",\"type\":\"uint64_t\",\"kind\":\"b\",\"delta\":16,\"arg\":true,\"cmt\":\"I have no idea what this var does\"}]}", 0);
 	return db;
 }
 
@@ -488,7 +488,8 @@ bool test_anal_var_save() {
 	r_anal_var_set_access (v, "rsp", 1340, R_ANAL_VAR_ACCESS_TYPE_WRITE, 321);
 
 	r_anal_function_set_var (f, -0x10, R_ANAL_VAR_KIND_BPV, "struct something", 0, false, "var_bp");
-	r_anal_function_set_var (f, 0x10, R_ANAL_VAR_KIND_BPV, "uint64_t", 0, true, "arg_bp");
+	v = r_anal_function_set_var (f, 0x10, R_ANAL_VAR_KIND_BPV, "uint64_t", 0, true, "arg_bp");
+	v->comment = strdup ("I have no idea what this var does");
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_functions_save (db, anal);
@@ -569,6 +570,7 @@ bool test_anal_var_load() {
 	mu_assert_streq (v->type, "uint64_t", "var type");
 	mu_assert ("var arg", v->isarg);
 	mu_assert_eq (v->accesses.len, 0, "accesses count");
+	mu_assert_streq (v->comment, "I have no idea what this var does", "var comment");
 
 	sdb_free (db);
 	r_anal_free (anal);

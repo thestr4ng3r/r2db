@@ -32,8 +32,8 @@ static inline void key_parser_add(KeyParser *parser, const char *key, int val) {
 	switch (key_parser_v)
 
 #define KEY_PARSER_JSON(parser, json, child, body) \
-	if(json->type == NX_JSON_OBJECT) { \
-		for(nx_json *child = json->children.first; child; child = child->next) { \
+	if(json->type == R_JSON_OBJECT) { \
+		for(RJson *child = json->children.first; child; child = child->next) { \
 			KEY_PARSER_SWITCH (parser, child->key) { body } \
 		} \
 	}

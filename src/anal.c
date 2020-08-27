@@ -1,7 +1,6 @@
 /* radare - LGPL - Copyright 2020 - thestr4ng3r */
 
 #include <r_serialize.h>
-#include <nxjson.h>
 #include "serialize_util.h"
 #include <errno.h>
 
@@ -97,8 +96,8 @@ R_API void r_serialize_anal_diff_parser_free(RSerializeAnalDiffParser parser) {
 	key_parser_free (parser);
 }
 
-R_API R_NULLABLE RAnalDiff *r_serialize_anal_diff_load(R_NONNULL RSerializeAnalDiffParser parser, R_NONNULL const nx_json *json) {
-	if (json->type != NX_JSON_OBJECT) {
+R_API R_NULLABLE RAnalDiff *r_serialize_anal_diff_load(R_NONNULL RSerializeAnalDiffParser parser, R_NONNULL const RJson *json) {
+	if (json->type != R_JSON_OBJECT) {
 		return NULL;
 	}
 	RAnalDiff *diff = r_anal_diff_new ();
@@ -107,37 +106,37 @@ R_API R_NULLABLE RAnalDiff *r_serialize_anal_diff_load(R_NONNULL RSerializeAnalD
 	}
 	KEY_PARSER_JSON (parser, json, child, {
 		case DIFF_FIELD_TYPE:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			if (strcmp (child->text_value, "m") == 0) {
+			if (strcmp (child->str_value, "m") == 0) {
 				diff->type = R_ANAL_DIFF_TYPE_MATCH;
-			} else if (strcmp (child->text_value, "u") == 0) {
+			} else if (strcmp (child->str_value, "u") == 0) {
 				diff->type = R_ANAL_DIFF_TYPE_UNMATCH;
 			}
 			break;
 		case DIFF_FIELD_ADDR:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			diff->addr = child->num.u_value;
 			break;
 		case DIFF_FIELD_DIST:
-			if (child->type == NX_JSON_INTEGER) {
+			if (child->type == R_JSON_INTEGER) {
 				diff->dist = child->num.u_value;
-			} else if (child->type == NX_JSON_DOUBLE) {
+			} else if (child->type == R_JSON_DOUBLE) {
 				diff->dist = child->num.dbl_value;
 			}
 			break;
 		case DIFF_FIELD_NAME:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
 			free (diff->name);
-			diff->name = strdup (child->text_value);
+			diff->name = strdup (child->str_value);
 			break;
 		case DIFF_FIELD_SIZE:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			diff->size = child->num.u_value;
@@ -173,17 +172,17 @@ R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitc
 	pj_end (j);
 }
 
-R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL const nx_json *json) {
-	if (json->type != NX_JSON_OBJECT) {
+R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL const RJson *json) {
+	if (json->type != R_JSON_OBJECT) {
 		return NULL;
 	}
 	RAnalSwitchOp *sop = r_anal_switch_op_new (0, 0, 0, 0);
 	if (!sop) {
 		return NULL;
 	}
-	nx_json *child;
+	RJson *child;
 	for (child = json->children.first; child; child = child->next) {
-		if (child->type == NX_JSON_INTEGER) {
+		if (child->type == R_JSON_INTEGER) {
 			if (strcmp (child->key, "addr") == 0) {
 				sop->addr = child->num.u_value;
 			} else if (strcmp (child->key, "min") == 0) {
@@ -193,18 +192,18 @@ R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL const nx_json *js
 			} else if (strcmp (child->key, "def") == 0) {
 				sop->def_val = child->num.u_value;
 			}
-		} else if (child->type == NX_JSON_ARRAY && strcmp (child->key, "cases") == 0) {
-			nx_json *baby;
+		} else if (child->type == R_JSON_ARRAY && strcmp (child->key, "cases") == 0) {
+			RJson *baby;
 			for (baby = child->children.first; baby; baby = baby->next) {
-				if (baby->type != NX_JSON_OBJECT) {
+				if (baby->type != R_JSON_OBJECT) {
 					continue;
 				}
 				ut64 addr = UT64_MAX;
 				ut64 jump = UT64_MAX;
 				ut64 value = UT64_MAX;
-				nx_json *semen;
+				RJson *semen;
 				for (semen = baby->children.first; semen; semen = semen->next) {
-					if (semen->type != NX_JSON_INTEGER) {
+					if (semen->type != R_JSON_INTEGER) {
 						continue;
 					}
 					if (strcmp (semen->key, "addr") == 0) {
@@ -340,8 +339,8 @@ static bool block_load_cb(void *user, const char *k, const char *v) {
 	if (!json_str) {
 		return true;
 	}
-	const nx_json *json = nx_json_parse_utf8 (json_str);
-	if (!json || json->type != NX_JSON_OBJECT) {
+	RJson *json = r_json_parse (json_str);
+	if (!json || json->type != R_JSON_OBJECT) {
 		free (json_str);
 		return false;
 	}
@@ -355,50 +354,50 @@ static bool block_load_cb(void *user, const char *k, const char *v) {
 	size_t fingerprint_size = SIZE_MAX;
 	KEY_PARSER_JSON (ctx->parser, json, child, {
 		case BLOCK_FIELD_SIZE:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.size = child->num.u_value;
 			break;
 		case BLOCK_FIELD_JUMP:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.jump = child->num.u_value;
 			break;
 		case BLOCK_FIELD_FAIL:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.fail = child->num.u_value;
 			break;
 		case BLOCK_FIELD_TRACED:
-			if (child->type != NX_JSON_BOOL) {
+			if (child->type != R_JSON_BOOLEAN) {
 				break;
 			}
 			proto.traced = child->num.u_value;
 			break;
 		case BLOCK_FIELD_FOLDED:
-			if (child->type != NX_JSON_BOOL) {
+			if (child->type != R_JSON_BOOLEAN) {
 				break;
 			}
 			proto.folded = child->num.u_value;
 			break;
 		case BLOCK_FIELD_COLORIZE:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.colorize = (ut32)child->num.u_value;
 			break;
 		case BLOCK_FIELD_FINGERPRINT: {
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
 			if (proto.fingerprint) {
 				free (proto.fingerprint);
 				proto.fingerprint = NULL;
 			}
-			fingerprint_size = strlen (child->text_value);
+			fingerprint_size = strlen (child->str_value);
 			if (!fingerprint_size) {
 				break;
 			}
@@ -406,7 +405,7 @@ static bool block_load_cb(void *user, const char *k, const char *v) {
 			if (!proto.fingerprint) {
 				break;
 			}
-			int decsz = r_base64_decode (proto.fingerprint, child->text_value, fingerprint_size);
+			int decsz = r_base64_decode (proto.fingerprint, child->str_value, fingerprint_size);
 			if (decsz <= 0) {
 				free (proto.fingerprint);
 				proto.fingerprint = NULL;
@@ -429,24 +428,24 @@ static bool block_load_cb(void *user, const char *k, const char *v) {
 			proto.switch_op = r_serialize_anal_switch_op_load (child);
 			break;
 		case BLOCK_FIELD_NINSTR:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.ninstr = (int)child->num.s_value;
 			break;
 		case BLOCK_FIELD_OP_POS: {
-			if (child->type != NX_JSON_ARRAY) {
+			if (child->type != R_JSON_ARRAY) {
 				break;
 			}
 			if (proto.op_pos) {
 				free (proto.op_pos);
 				proto.op_pos = NULL;
 			}
-			proto.op_pos = calloc (child->children.length, sizeof (ut16));
+			proto.op_pos = calloc (child->children.count, sizeof (ut16));
 			proto.op_pos_size = 0;
-			nx_json *baby;
+			RJson *baby;
 			for (baby = child->children.first; baby; baby = baby->next) {
-				if (baby->type != NX_JSON_INTEGER) {
+				if (baby->type != R_JSON_INTEGER) {
 					free (proto.op_pos);
 					proto.op_pos = NULL;
 					proto.op_pos_size = 0;
@@ -457,33 +456,33 @@ static bool block_load_cb(void *user, const char *k, const char *v) {
 			break;
 		}
 		case BLOCK_FIELD_STACKPTR:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.stackptr = (int)child->num.s_value;
 			break;
 		case BLOCK_FIELD_PARENT_STACKPTR:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.parent_stackptr = (int)child->num.s_value;
 			break;
 		case BLOCK_FIELD_CMPVAL:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.cmpval = child->num.u_value;
 			break;
 		case BLOCK_FIELD_CMPREG:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			proto.cmpreg = r_str_constpool_get (&ctx->anal->constpool, child->text_value);
+			proto.cmpreg = r_str_constpool_get (&ctx->anal->constpool, child->str_value);
 			break;
 		default:
 			break;
 	})
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 
 	errno = 0;
@@ -645,8 +644,8 @@ R_API void r_serialize_anal_var_parser_free(RSerializeAnalVarParser parser) {
 	key_parser_free (parser);
 }
 
-R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fcn, R_NONNULL RSerializeAnalVarParser parser, R_NONNULL const nx_json *json) {
-	if (json->type != NX_JSON_OBJECT) {
+R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fcn, R_NONNULL RSerializeAnalVarParser parser, R_NONNULL const RJson *json) {
+	if (json->type != R_JSON_OBJECT) {
 		return NULL;
 	}
 	const char *name = NULL;
@@ -663,23 +662,23 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 
 	KEY_PARSER_JSON (parser, json, child, {
 		case VAR_FIELD_NAME:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			name = child->text_value;
+			name = child->str_value;
 			break;
 		case VAR_FIELD_TYPE:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			type = child->text_value;
+			type = child->str_value;
 			break;
 		case VAR_FIELD_KIND:
-			if (child->type != NX_JSON_STRING || !*child->text_value || child->text_value[1]) {
+			if (child->type != R_JSON_STRING || !*child->str_value || child->str_value[1]) {
 				// must be a string of exactly 1 char
 				break;
 			}
-			switch (*child->text_value) {
+			switch (*child->str_value) {
 			case 'r':
 				kind = R_ANAL_VAR_KIND_REG;
 				break;
@@ -694,55 +693,55 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 			}
 			break;
 		case VAR_FIELD_ARG:
-			if (child->type != NX_JSON_BOOL) {
+			if (child->type != R_JSON_BOOLEAN) {
 				break;
 			}
 			arg = child->num.u_value ? true : false;
 			break;
 		case VAR_FIELD_DELTA:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				eprintf ("delta nop\n");
 				break;
 			}
 			delta = child->num.s_value;
 			break;
 		case VAR_FIELD_REG:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			regname = child->text_value;
+			regname = child->str_value;
 			break;
 		case VAR_FIELD_COMMENT:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			comment = child->text_value;
+			comment = child->str_value;
 			break;
 		case VAR_FIELD_ACCS: {
-			if (child->type != NX_JSON_ARRAY) {
+			if (child->type != R_JSON_ARRAY) {
 				break;
 			}
-			nx_json *baby;
+			RJson *baby;
 			for (baby = child->children.first; baby; baby = baby->next) {
-				if (baby->type != NX_JSON_OBJECT) {
+				if (baby->type != R_JSON_OBJECT) {
 					continue;
 				}
 				// {off:<st64>, type:"r|w|rw", sp?:<st64>}
-				const nx_json *offv = nx_json_get (baby, "off");
-				if (!offv || offv->type != NX_JSON_INTEGER) {
+				const RJson *offv = r_json_get (baby, "off");
+				if (!offv || offv->type != R_JSON_INTEGER) {
 					continue;
 				}
-				const nx_json *typev = nx_json_get (baby, "type");
-				if (!typev || typev->type != NX_JSON_STRING) {
+				const RJson *typev = r_json_get (baby, "type");
+				if (!typev || typev->type != R_JSON_STRING) {
 					continue;
 				}
-				const char *acctype_str = typev->text_value;
-				const nx_json *spv = nx_json_get (baby, "sp");
-				if (spv && spv->type != NX_JSON_INTEGER) {
+				const char *acctype_str = typev->str_value;
+				const RJson *spv = r_json_get (baby, "sp");
+				if (spv && spv->type != R_JSON_INTEGER) {
 					continue;
 				}
-				const nx_json *regv = nx_json_get (baby, "reg");
-				if (!regv || regv->type != NX_JSON_STRING) {
+				const RJson *regv = r_json_get (baby, "reg");
+				if (!regv || regv->type != R_JSON_STRING) {
 					continue;
 				}
 
@@ -766,7 +765,7 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 				acc->offset = offv->num.s_value;
 				acc->type = acctype;
 				acc->stackptr = spv ? spv->num.s_value : 0;
-				acc->reg = regv->text_value;
+				acc->reg = regv->str_value;
 			}
 			break;
 		}
@@ -925,8 +924,8 @@ static bool function_load_cb(void *user, const char *k, const char *v) {
 	if (!json_str) {
 		return true;
 	}
-	const nx_json *json = nx_json_parse_utf8 (json_str);
-	if (!json || json->type != NX_JSON_OBJECT) {
+	RJson *json = r_json_parse (json_str);
+	if (!json || json->type != R_JSON_OBJECT) {
 		free (json_str);
 		return false;
 	}
@@ -935,86 +934,86 @@ static bool function_load_cb(void *user, const char *k, const char *v) {
 	function->bits = 0; // should be 0 if not specified
 	function->bp_frame = false; // should be false if not specified
 	bool noreturn = false;
-	nx_json *vars_json = NULL;
+	RJson *vars_json = NULL;
 	KEY_PARSER_JSON (ctx->parser, json, child, {
 		case FUNCTION_FIELD_NAME:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
 			if (function->name) {
 				free (function->name);
 			}
-			function->name = strdup (child->text_value);
+			function->name = strdup (child->str_value);
 			break;
 		case FUNCTION_FIELD_BITS:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			function->bits = (int)child->num.s_value;
 			break;
 		case FUNCTION_FIELD_TYPE:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			function->type = (int)child->num.s_value;
 			break;
 		case FUNCTION_FIELD_CC:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			function->cc = r_str_constpool_get (&ctx->anal->constpool, child->text_value);
+			function->cc = r_str_constpool_get (&ctx->anal->constpool, child->str_value);
 			break;
 		case FUNCTION_FIELD_STACK:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			function->stack = (int)child->num.s_value;
 			break;
 		case FUNCTION_FIELD_MAXSTACK:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			function->maxstack = (int)child->num.s_value;
 			break;
 		case FUNCTION_FIELD_NINSTR:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			function->ninstr = (int)child->num.s_value;
 			break;
 		case FUNCTION_FIELD_FOLDED:
-			if (child->type != NX_JSON_BOOL) {
+			if (child->type != R_JSON_BOOLEAN) {
 				break;
 			}
 			function->folded = child->num.u_value ? true : false;
 			break;
 		case FUNCTION_FIELD_PURE:
-			if (child->type != NX_JSON_BOOL) {
+			if (child->type != R_JSON_BOOLEAN) {
 				break;
 			}
 			function->is_pure = child->num.u_value ? true : false;
 			break;
 		case FUNCTION_FIELD_BP_FRAME:
-			if (child->type != NX_JSON_BOOL) {
+			if (child->type != R_JSON_BOOLEAN) {
 				break;
 			}
 			function->bp_frame = child->num.u_value ? true : false;
 			break;
 		case FUNCTION_FIELD_NORETURN:
-			if (child->type != NX_JSON_BOOL) {
+			if (child->type != R_JSON_BOOLEAN) {
 				break;
 			}
 			noreturn = child->num.u_value ? true : false;
 			break;
 		case FUNCTION_FIELD_FINGERPRINT:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
 			if (function->fingerprint) {
 				free (function->fingerprint);
 				function->fingerprint = NULL;
 			}
-			function->fingerprint_size = strlen (child->text_value);
+			function->fingerprint_size = strlen (child->str_value);
 			if (!function->fingerprint_size) {
 				break;
 			}
@@ -1023,7 +1022,7 @@ static bool function_load_cb(void *user, const char *k, const char *v) {
 				function->fingerprint_size = 0;
 				break;
 			}
-			int decsz = r_base64_decode (function->fingerprint, child->text_value, function->fingerprint_size);
+			int decsz = r_base64_decode (function->fingerprint, child->str_value, function->fingerprint_size);
 			if (decsz <= 0) {
 				free (function->fingerprint);
 				function->fingerprint = NULL;
@@ -1044,12 +1043,12 @@ static bool function_load_cb(void *user, const char *k, const char *v) {
 			function->diff = r_serialize_anal_diff_load (ctx->diff_parser, child);
 			break;
 		case FUNCTION_FIELD_BBS: {
-			if (child->type != NX_JSON_ARRAY) {
+			if (child->type != R_JSON_ARRAY) {
 				break;
 			}
-			nx_json *baby;
+			RJson *baby;
 			for (baby = child->children.first; baby; baby = baby->next) {
-				if (baby->type != NX_JSON_INTEGER) {
+				if (baby->type != R_JSON_INTEGER) {
 					continue;
 				}
 				RAnalBlock *block = r_anal_get_block_at (ctx->anal, baby->num.u_value);
@@ -1061,15 +1060,15 @@ static bool function_load_cb(void *user, const char *k, const char *v) {
 			break;
 		}
 		case FUNCTION_FIELD_IMPORTS: {
-			if (child->type != NX_JSON_ARRAY) {
+			if (child->type != R_JSON_ARRAY) {
 				break;
 			}
-			nx_json *baby;
+			RJson *baby;
 			for (baby = child->children.first; baby; baby = baby->next) {
-				if (baby->type != NX_JSON_STRING) {
+				if (baby->type != R_JSON_STRING) {
 					continue;
 				}
-				char *import = strdup (baby->text_value);
+				char *import = strdup (baby->str_value);
 				if (!import) {
 					break;
 				}
@@ -1085,7 +1084,7 @@ static bool function_load_cb(void *user, const char *k, const char *v) {
 			break;
 		}
 		case FUNCTION_FIELD_VARS: {
-			if (child->type != NX_JSON_ARRAY) {
+			if (child->type != R_JSON_ARRAY) {
 				break;
 			}
 			vars_json = child;
@@ -1106,14 +1105,14 @@ static bool function_load_cb(void *user, const char *k, const char *v) {
 	function->is_noreturn = noreturn; // Can't set directly, r_anal_add_function() overwrites it
 
 	if (vars_json) {
-		nx_json *baby;
+		RJson *baby;
 		for (baby = vars_json->children.first; baby; baby = baby->next) {
 			r_serialize_anal_var_load (function, ctx->var_parser, baby);
 		}
 	}
 
 beach:
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 	return ret;
 }
@@ -1204,36 +1203,36 @@ static bool xrefs_load_cb(void *user, const char *k, const char *v) {
 	if (!json_str) {
 		return true;
 	}
-	const nx_json *json = nx_json_parse_utf8 (json_str);
-	if (!json || json->type != NX_JSON_ARRAY) {
+	RJson *json = r_json_parse (json_str);
+	if (!json || json->type != R_JSON_ARRAY) {
 		free (json_str);
 		return false;
 	}
 
-	const nx_json *child;
+	const RJson *child;
 	for (child = json->children.first; child; child = child->next) {
-		if (child->type != NX_JSON_OBJECT) {
+		if (child->type != R_JSON_OBJECT) {
 			goto error;
 		}
-		const nx_json *baby = nx_json_get (child, "to");
-		if (!baby || baby->type != NX_JSON_INTEGER) {
+		const RJson *baby = r_json_get (child, "to");
+		if (!baby || baby->type != R_JSON_INTEGER) {
 			goto error;
 		}
 		ut64 to = baby->num.u_value;
 
 		RAnalRefType type = R_ANAL_REF_TYPE_NULL;
-		baby = nx_json_get (child, "type");
+		baby = r_json_get (child, "type");
 		if (baby) {
 			// must be a 1-char string
-			if (baby->type != NX_JSON_STRING || !baby->text_value[0] || baby->text_value[1]) {
+			if (baby->type != R_JSON_STRING || !baby->str_value[0] || baby->str_value[1]) {
 				goto error;
 			}
-			switch (baby->text_value[0]) {
+			switch (baby->str_value[0]) {
 			case R_ANAL_REF_TYPE_CODE:
 			case R_ANAL_REF_TYPE_CALL:
 			case R_ANAL_REF_TYPE_DATA:
 			case R_ANAL_REF_TYPE_STRING:
-				type = baby->text_value[0];
+				type = baby->str_value[0];
 				break;
 			default:
 				goto error;
@@ -1243,12 +1242,12 @@ static bool xrefs_load_cb(void *user, const char *k, const char *v) {
 		r_anal_xrefs_set (anal, from, to, type);
 	}
 
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 
 	return true;
 error:
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 	return false;
 }
@@ -1363,15 +1362,15 @@ static bool meta_load_cb(void *user, const char *k, const char *v) {
 	if (!json_str) {
 		return true;
 	}
-	const nx_json *json = nx_json_parse_utf8 (json_str);
-	if (!json || json->type != NX_JSON_ARRAY) {
+	RJson *json = r_json_parse (json_str);
+	if (!json || json->type != R_JSON_ARRAY) {
 		free (json_str);
 		return false;
 	}
 
-	const nx_json *child;
+	const RJson *child;
 	for (child = json->children.first; child; child = child->next) {
-		if (child->type != NX_JSON_OBJECT) {
+		if (child->type != R_JSON_OBJECT) {
 			goto error;
 		}
 
@@ -1381,18 +1380,18 @@ static bool meta_load_cb(void *user, const char *k, const char *v) {
 		int subtype = 0;
 		const char *space_name = NULL;
 
-		const nx_json *baby;
+		const RJson *baby;
 		for (baby = child->children.first; baby; baby = baby->next) {
 			if (!strcmp (baby->key, "size")) {
-				if (baby->type == NX_JSON_INTEGER) {
+				if (baby->type == R_JSON_INTEGER) {
 					size = baby->num.u_value;
 				}
 				continue;
 			}
 			if (!strcmp (baby->key, "type")) {
 				// only single-char strings accepted
-				if (baby->type == NX_JSON_STRING && baby->text_value[0] && !baby->text_value[1]) {
-					switch (baby->text_value[0]) {
+				if (baby->type == R_JSON_STRING && baby->str_value[0] && !baby->str_value[1]) {
+					switch (baby->str_value[0]) {
 					case 'd':
 						type = R_META_TYPE_DATA;
 						break;
@@ -1430,20 +1429,20 @@ static bool meta_load_cb(void *user, const char *k, const char *v) {
 				continue;
 			}
 			if (!strcmp (baby->key, "str")) {
-				if (baby->type == NX_JSON_STRING) {
-					str = baby->text_value;
+				if (baby->type == R_JSON_STRING) {
+					str = baby->str_value;
 				}
 				continue;
 			}
 			if (!strcmp (baby->key, "subtype")) {
-				if (baby->type == NX_JSON_INTEGER) {
+				if (baby->type == R_JSON_INTEGER) {
 					subtype = (int)baby->num.s_value;
 				}
 				continue;
 			}
 			if (!strcmp (baby->key, "space")) {
-				if (baby->type == NX_JSON_STRING) {
-					space_name = baby->text_value;
+				if (baby->type == R_JSON_STRING) {
+					space_name = baby->str_value;
 				}
 				continue;
 			}
@@ -1472,12 +1471,12 @@ static bool meta_load_cb(void *user, const char *k, const char *v) {
 		r_interval_tree_insert (&anal->meta, addr, end, item);
 	}
 
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 
 	return true;
 error:
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 	return false;
 }
@@ -1685,112 +1684,112 @@ static bool hints_load_cb(void *user, const char *k, const char *v) {
 	if (!json_str) {
 		return true;
 	}
-	const nx_json *json = nx_json_parse_utf8 (json_str);
-	if (!json || json->type != NX_JSON_OBJECT) {
+	RJson *json = r_json_parse (json_str);
+	if (!json || json->type != R_JSON_OBJECT) {
 		free (json_str);
 		return false;
 	}
 
-	const nx_json *child;
+	const RJson *child;
 	KEY_PARSER_JSON (ctx->parser, json, child, {
 		case HINTS_FIELD_ARCH:
-			r_anal_hint_set_arch (anal, addr, child->type == NX_JSON_STRING ? child->text_value : NULL);
+			r_anal_hint_set_arch (anal, addr, child->type == R_JSON_STRING ? child->str_value : NULL);
 			break;
 		case HINTS_FIELD_BITS:
-			r_anal_hint_set_bits (anal, addr, child->type == NX_JSON_INTEGER ? (int)child->num.s_value : 0);
+			r_anal_hint_set_bits (anal, addr, child->type == R_JSON_INTEGER ? (int)child->num.s_value : 0);
 			break;
 		case HINTS_FIELD_IMMBASE:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_immbase (anal, addr, (int)child->num.s_value);
 			break;
 		case HINTS_FIELD_JUMP:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_jump (anal, addr, child->num.u_value);
 			break;
 		case HINTS_FIELD_FAIL:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_fail (anal, addr, child->num.u_value);
 			break;
 		case HINTS_FIELD_STACKFRAME:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_stackframe (anal, addr, child->num.u_value);
 			break;
 		case HINTS_FIELD_PTR:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_pointer (anal, addr, child->num.u_value);
 			break;
 		case HINTS_FIELD_NWORD:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_nword (anal, addr, (int)child->num.s_value);
 			break;
 		case HINTS_FIELD_RET:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_ret (anal, addr, child->num.u_value);
 			break;
 		case HINTS_FIELD_NEW_BITS:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_newbits (anal, addr, (int)child->num.s_value);
 			break;
 		case HINTS_FIELD_SIZE:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_size (anal, addr, child->num.u_value);
 			break;
 		case HINTS_FIELD_SYNTAX:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			r_anal_hint_set_syntax (anal, addr, child->text_value);
+			r_anal_hint_set_syntax (anal, addr, child->str_value);
 			break;
 		case HINTS_FIELD_OPTYPE:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_type (anal, addr, (int)child->num.s_value);
 			break;
 		case HINTS_FIELD_OPCODE:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			r_anal_hint_set_opcode (anal, addr, child->text_value);
+			r_anal_hint_set_opcode (anal, addr, child->str_value);
 			break;
 		case HINTS_FIELD_TYPE_OFFSET:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			r_anal_hint_set_offset (anal, addr, child->text_value);
+			r_anal_hint_set_offset (anal, addr, child->str_value);
 			break;
 		case HINTS_FIELD_ESIL:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			r_anal_hint_set_esil (anal, addr, child->text_value);
+			r_anal_hint_set_esil (anal, addr, child->str_value);
 			break;
 		case HINTS_FIELD_HIGH:
-			if (child->type != NX_JSON_BOOL || !child->num.u_value) {
+			if (child->type != R_JSON_BOOLEAN || !child->num.u_value) {
 				break;
 			}
 			r_anal_hint_set_high (anal, addr);
 			break;
 		case HINTS_FIELD_VAL:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			r_anal_hint_set_val (anal, addr, child->num.u_value);
@@ -1799,12 +1798,12 @@ static bool hints_load_cb(void *user, const char *k, const char *v) {
 			break;
 	})
 
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 
 	return true;
 error:
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 	return false;
 }

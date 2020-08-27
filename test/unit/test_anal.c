@@ -37,9 +37,9 @@ bool test_anal_diff_load() {
 	RSerializeAnalDiffParser parser = r_serialize_anal_diff_parser_new ();
 
 	char *str = strdup ("{}");
-	const nx_json *json = nx_json_parse_utf8 (str);
+	RJson *json = r_json_parse (str);
 	RAnalDiff *diff = r_serialize_anal_diff_load (parser, json);
-	nx_json_free (json);
+	r_json_free (json);
 	free (str);
 	mu_assert_notnull (diff, "diff");
 	mu_assert_eq (diff->addr, UT64_MAX, "addr");
@@ -50,9 +50,9 @@ bool test_anal_diff_load() {
 	r_anal_diff_free (diff);
 
 	str = strdup ("{\"type\":\"m\",\"addr\":4919,\"dist\":42.300000,\"name\":\"\\\\\\\\,\\\\\\\";] [}{'\",\"size\":16962}");
-	json = nx_json_parse_utf8 (str);
+	json = r_json_parse (str);
 	diff = r_serialize_anal_diff_load (parser, json);
-	nx_json_free (json);
+	r_json_free (json);
 	free (str);
 	mu_assert_notnull (diff, "diff");
 	mu_assert_eq (diff->addr, 0x1337, "addr");
@@ -63,9 +63,9 @@ bool test_anal_diff_load() {
 	r_anal_diff_free (diff);
 
 	str = strdup ("{\"type\":\"u\",\"addr\":4919,\"dist\":42.300000,\"name\":\"\\\\\\\\,\\\\\\\";] [}{'\",\"size\":16962}");
-	json = nx_json_parse_utf8 (str);
+	json = r_json_parse (str);
 	diff = r_serialize_anal_diff_load (parser, json);
-	nx_json_free (json);
+	r_json_free (json);
 	free (str);
 	mu_assert_notnull (diff, "diff");
 	mu_assert_eq (diff->addr, 0x1337, "addr");
@@ -100,9 +100,9 @@ bool test_anal_switch_op_save() {
 
 bool test_anal_switch_op_load() {
 	char *str = strdup ("{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[]}");
-	const nx_json *json = nx_json_parse_utf8 (str);
+	RJson *json = r_json_parse (str);
 	RAnalSwitchOp *sop = r_serialize_anal_switch_op_load (json);
-	nx_json_free (json);
+	r_json_free (json);
 	free (str);
 	mu_assert_notnull (sop, "sop");
 	mu_assert_eq (sop->addr, 1337, "addr");
@@ -113,9 +113,9 @@ bool test_anal_switch_op_load() {
 	r_anal_switch_op_free (sop);
 
 	str = strdup("{\"addr\":1337,\"min\":42,\"max\":45,\"def\":46,\"cases\":[{\"addr\":1339,\"jump\":57005,\"value\":42},{\"addr\":1340,\"jump\":48879,\"value\":43}]}");
-	json = nx_json_parse_utf8 (str);
+	json = r_json_parse (str);
 	sop = r_serialize_anal_switch_op_load (json);
-	nx_json_free (json);
+	r_json_free (json);
 	free (str);
 	mu_assert_notnull (sop, "sop");
 	mu_assert_eq (sop->addr, 1337, "addr");

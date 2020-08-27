@@ -4,7 +4,7 @@
 #define R2DB_R_SERIALIZE_H
 
 #include <r_core.h>
-#include <nxjson.h>
+#include <r_util/r_json.h>
 
 // RSpaces
 
@@ -30,12 +30,12 @@ R_API bool r_serialize_config_load(R_NONNULL Sdb *db, R_NONNULL RConfig *config,
 
 R_API void r_serialize_anal_case_op_save(R_NONNULL PJ *j, R_NONNULL RAnalCaseOp *op);
 R_API void r_serialize_anal_switch_op_save(R_NONNULL PJ *j, R_NONNULL RAnalSwitchOp *op);
-R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL const nx_json *json);
+R_API RAnalSwitchOp *r_serialize_anal_switch_op_load(R_NONNULL const RJson *json);
 
 typedef void *RSerializeAnalDiffParser;
 R_API RSerializeAnalDiffParser r_serialize_anal_diff_parser_new();
 R_API void r_serialize_anal_diff_parser_free(RSerializeAnalDiffParser parser);
-R_API R_NULLABLE RAnalDiff *r_serialize_anal_diff_load(R_NONNULL RSerializeAnalDiffParser parser, R_NONNULL const nx_json *json);
+R_API R_NULLABLE RAnalDiff *r_serialize_anal_diff_load(R_NONNULL RSerializeAnalDiffParser parser, R_NONNULL const RJson *json);
 R_API void r_serialize_anal_diff_save(R_NONNULL PJ *j, R_NONNULL RAnalDiff *diff);
 R_API void r_serialize_anal_blocks_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 
@@ -48,7 +48,7 @@ R_API bool r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal
 typedef void *RSerializeAnalVarParser;
 R_API RSerializeAnalVarParser r_serialize_anal_var_parser_new();
 R_API void r_serialize_anal_var_parser_free(RSerializeAnalVarParser parser);
-R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fcn, R_NONNULL RSerializeAnalVarParser parser, R_NONNULL const nx_json *json);
+R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fcn, R_NONNULL RSerializeAnalVarParser parser, R_NONNULL const RJson *json);
 
 R_API void r_serialize_anal_functions_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err);

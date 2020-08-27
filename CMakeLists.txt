@@ -19,9 +19,6 @@ set(SOURCE
 		src/config.c
 		src/anal.c)
 
-list(APPEND SOURCE nxjson/nxjson.c)
-include_directories(nxjson)
-
 include_directories(include)
 
 link_directories(${RADARE2_LIBRARY_DIRS})

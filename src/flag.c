@@ -2,8 +2,6 @@
 
 #include <r_serialize.h>
 
-#include <nxjson.h>
-
 #include "serialize_util.h"
 
 #if R_FLAG_ZONE_USE_SDB
@@ -50,15 +48,15 @@ static bool zone_load_cb(void *user, const char *k, const char *v) {
 	if (!json_str) {
 		return true;
 	}
-	const nx_json *json  = nx_json_parse_utf8 (json_str);
+	RJson *json  = r_json_parse (json_str);
 	if (!json) {
 		free (json_str);
 		return false;
 	}
-	if (json->type != NX_JSON_OBJECT) {
+	if (json->type != R_JSON_OBJECT) {
 		goto beach;
 	}
-	const nx_json *child;
+	const RJson *child;
 	RFlagZoneItem *item = R_NEW0 (RFlagZoneItem);
 	if (!item) {
 		goto beach;
@@ -69,7 +67,7 @@ static bool zone_load_cb(void *user, const char *k, const char *v) {
 		goto beach;
 	}
 	for (child = json->children.first; child; child = child->next) {
-		if (child->type != NX_JSON_INTEGER) {
+		if (child->type != R_JSON_INTEGER) {
 			continue;
 		}
 		if (strcmp (child->key, "from") == 0) {
@@ -80,7 +78,7 @@ static bool zone_load_cb(void *user, const char *k, const char *v) {
 	}
 	r_list_append (list, item);
 beach:
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 	return true;
 }
@@ -162,8 +160,8 @@ static bool flag_load_cb(void *user, const char *k, const char *v) {
 	if (!json_str) {
 		return true;
 	}
-	const nx_json *json = nx_json_parse_utf8 (json_str);
-	if (!json || json->type != NX_JSON_OBJECT) {
+	RJson *json = r_json_parse (json_str);
+	if (!json || json->type != R_JSON_OBJECT) {
 		free (json_str);
 		return false;
 	}
@@ -172,7 +170,7 @@ static bool flag_load_cb(void *user, const char *k, const char *v) {
 	bool offset_set = false;
 	bool size_set = false;
 
-	const nx_json *child;
+	const RJson *child;
 	for (child = json->children.first; child; child = child->next) {
 		bool found;
 		FlagField field = (FlagField)ht_pp_find (ctx->fields, child->key, &found);
@@ -181,54 +179,54 @@ static bool flag_load_cb(void *user, const char *k, const char *v) {
 		}
 		switch (field) {
 		case FLAG_FIELD_REALNAME:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			proto.realname = (char *)child->text_value;
+			proto.realname = (char *)child->str_value;
 			break;
 		case FLAG_FIELD_DEMANGLED:
-			if (child->type != NX_JSON_BOOL) {
+			if (child->type != R_JSON_BOOLEAN) {
 				break;
 			}
 			proto.demangled = child->num.u_value != 0;
 			break;
 		case FLAG_FIELD_OFFSET:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.offset = child->num.u_value;
 			offset_set = true;
 			break;
 		case FLAG_FIELD_SIZE:
-			if (child->type != NX_JSON_INTEGER) {
+			if (child->type != R_JSON_INTEGER) {
 				break;
 			}
 			proto.size = child->num.u_value;
 			size_set = true;
 			break;
 		case FLAG_FIELD_SPACE:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			proto.space = r_flag_space_get (ctx->flag, child->text_value);
+			proto.space = r_flag_space_get (ctx->flag, child->str_value);
 			break;
 		case FLAG_FIELD_COLOR:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			proto.color = (char *)child->text_value;
+			proto.color = (char *)child->str_value;
 			break;
 		case FLAG_FIELD_COMMENT:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			proto.comment = (char *)child->text_value;
+			proto.comment = (char *)child->str_value;
 			break;
 		case FLAG_FIELD_ALIAS:
-			if (child->type != NX_JSON_STRING) {
+			if (child->type != R_JSON_STRING) {
 				break;
 			}
-			proto.alias = (char *)child->text_value;
+			proto.alias = (char *)child->str_value;
 			break;
 		default:
 			break;
@@ -258,7 +256,7 @@ static bool flag_load_cb(void *user, const char *k, const char *v) {
 	}
 
 beach:
-	nx_json_free (json);
+	r_json_free (json);
 	free (json_str);
 	return res;
 }

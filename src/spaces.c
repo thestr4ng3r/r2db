@@ -1,7 +1,5 @@
 
-#include <r_project.h>
-
-#include <nxjson.h>
+#include <r_serialize.h>
 
 #include "serialize_util.h"
 
@@ -80,32 +78,32 @@ R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces,
 	}
 
 	bool res = true;
-	const nx_json *stack_json = nx_json_parse_utf8 (stack_json_str);
+	RJson *stack_json = r_json_parse (stack_json_str);
 	if (!stack_json) {
 		SERIALIZE_ERR ("failed to parse stackspace json");
 		res = false;
 		goto beach;
 	}
-	if (stack_json->type != NX_JSON_ARRAY) {
+	if (stack_json->type != R_JSON_ARRAY) {
 		SERIALIZE_ERR ("stackspace json is not an array");
 		res = false;
 		goto beach;
 	}
-	nx_json *stack_element;
+	RJson *stack_element;
 	for (stack_element = stack_json->children.first; stack_element; stack_element = stack_element->next) {
-		if (stack_element->type != NX_JSON_STRING) {
+		if (stack_element->type != R_JSON_STRING) {
 			SERIALIZE_ERR ("stackspace element is not a string");
 			res = false;
 			goto beach;
 		}
-		RSpace *space = r_spaces_get (spaces, stack_element->text_value);
+		RSpace *space = r_spaces_get (spaces, stack_element->str_value);
 		r_list_append (spaces->spacestack, space ? space->name : "*");
 	}
 
 	r_spaces_pop (spaces); // current is the top stack element, pop it
 
 beach:
-	nx_json_free (stack_json);
+	r_json_free (stack_json);
 	free (stack_json_str);
 	return res;
 }

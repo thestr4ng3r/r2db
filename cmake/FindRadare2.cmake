@@ -16,12 +16,20 @@
 #  Radare2_LIBRARY_<name> - Path to library r_<name>
 
 if(WIN32)
-	find_path(Radare2_INCLUDE_DIRS
-			NAMES r_core.h r_bin.h r_util.h
-			HINTS
-				"$ENV{HOME}/bin/prefix/radare2/include/libr"
-				/usr/local/include/libr
-				/usr/include/libr)
+        find_path(Radare2_INCLUDE_DIRS
+                        NAMES r_core.h r_bin.h r_util.h
+                        HINTS
+                        "$ENV{HOME}/bin/prefix/radare2/include/libr"
+                        /usr/local/include/libr
+                        /usr/include/libr)
+        find_path(SDB_INCLUDE_DIR
+                        NAMES sdb.h sdbht.h sdb_version.h
+                        HINTS
+                        "$ENV{HOME}/bin/prefix/radare2/include/libr/sdb"
+                        /usr/local/include/libr/sdb
+                        /usr/include/libr/sdb)
+
+        list(APPEND Radare2_INCLUDE_DIRS ${SDB_INCLUDE_DIR})
 
 	set(Radare2_LIBRARY_NAMES
 			core
@@ -54,9 +62,9 @@ if(WIN32)
 		find_library(Radare2_LIBRARY_${libname}
 				r_${libname}
 				HINTS
-					"$ENV{HOME}/bin/prefix/radare2/lib"
-					/usr/local/lib
-					/usr/lib)
+				"$ENV{HOME}/bin/prefix/radare2/lib"
+				/usr/local/lib
+				/usr/lib)
 
 		list(APPEND Radare2_LIBRARIES ${Radare2_LIBRARY_${libname}})
 		list(APPEND Radare2_LIBRARIES_VARS "Radare2_LIBRARY_${libname}")
@@ -73,11 +81,9 @@ if(WIN32)
 	set(Radare2_TARGET Radare2::libr)
 else()
 	# support installation locations used by r2 scripts like sys/user.sh and sys/install.sh
-	if(CUTTER_USE_ADDITIONAL_RADARE2_PATHS)
-		set(Radare2_CMAKE_PREFIX_PATH_TEMP ${CMAKE_PREFIX_PATH})
-		list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/bin/prefix/radare2") # sys/user.sh
-		list(APPEND CMAKE_PREFIX_PATH "/usr/local") # sys/install.sh
-	endif()
+	set(Radare2_CMAKE_PREFIX_PATH_TEMP ${CMAKE_PREFIX_PATH})
+	list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/bin/prefix/radare2") # sys/user.sh
+	list(APPEND CMAKE_PREFIX_PATH "/usr/local") # sys/install.sh
 
 	find_package(PkgConfig REQUIRED)
 	if(CMAKE_VERSION VERSION_LESS "3.6")
@@ -87,9 +93,7 @@ else()
 	endif()
 
 	# reset CMAKE_PREFIX_PATH
-	if(CUTTER_USE_ADDITIONAL_RADARE2_PATHS)
-		set(CMAKE_PREFIX_PATH ${Radare2_CMAKE_PREFIX_PATH_TEMP})
-	endif()
+	set(CMAKE_PREFIX_PATH ${Radare2_CMAKE_PREFIX_PATH_TEMP})
 
 	if((TARGET PkgConfig::Radare2) AND (NOT CMAKE_VERSION VERSION_LESS "3.11.0"))
 		set_target_properties(PkgConfig::Radare2 PROPERTIES IMPORTED_GLOBAL ON)
@@ -98,9 +102,9 @@ else()
 	elseif(Radare2_FOUND)
 		add_library(Radare2::libr INTERFACE IMPORTED)
 		set_target_properties(Radare2::libr PROPERTIES
-			INTERFACE_INCLUDE_DIRECTORIES "${Radare2_INCLUDE_DIRS}")
+				INTERFACE_INCLUDE_DIRECTORIES "${Radare2_INCLUDE_DIRS}")
 		set_target_properties(Radare2::libr PROPERTIES
-			INTERFACE_LINK_LIBRARIES "${Radare2_LIBRARIES}")
+				INTERFACE_LINK_LIBRARIES "${Radare2_LIBRARIES}")
 		set(Radare2_TARGET Radare2::libr)
 	endif()
 endif()

@@ -1106,6 +1106,9 @@ Sdb *anal_ref_db() {
 	Sdb *hints = sdb_ns (db, "hints", true);
 	sdb_set (hints, "0x10e1", "{\"arch\":\"arm\"}", 0);
 
+	Sdb *classes = sdb_ns (db, "classes", true);
+	sdb_ns (classes, "attrs", true);
+
 	return db;
 }
 

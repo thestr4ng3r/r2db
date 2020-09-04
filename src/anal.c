@@ -30,6 +30,10 @@
  *     0x<addr>={arch?:<str|null>,bits?:<int|null>,toff?:<string>,nword?:<int>,jump?:<ut64>,fail?:<ut64>,newbits?:<int>,
  *               immbase?:<int>,ptr?:<ut64>,ret?:<ut64>,syntax?:<str>,opcode?:<str>,esil?:<str>,optype?:<int>,
  *               size?:<ut64>,frame?:<ut64>,val?:<ut64>,high?:<bool>}
+ *   /classes
+ *     <direct dump of RAnal.sdb_classes>
+ *     /attrs
+ *       <direct dump of RAnal.sdb_classes_attrs>
  *
  * RAnalDiff JSON:
  * {type?:"m"|"u", addr:<ut64>, dist:<double>, name?:<str>, size:<ut32>}
@@ -1846,12 +1850,28 @@ beach:
 	return ret;
 }
 
+R_API void r_serialize_anal_classes_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	sdb_copy (anal->sdb_classes, db);
+}
+
+R_API bool r_serialize_anal_classes_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	if (!sdb_ns (db, "attrs", false)) {
+		SERIALIZE_ERR ("missing attrs namespace");
+		return false;
+	}
+	sdb_reset (anal->sdb_classes);
+	sdb_reset (anal->sdb_classes_attrs);
+	sdb_copy (db, anal->sdb_classes);
+	return true;
+}
+
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_xrefs_save (sdb_ns (db, "xrefs", true), anal);
 	r_serialize_anal_blocks_save (sdb_ns (db, "blocks", true), anal);
 	r_serialize_anal_functions_save (sdb_ns (db, "functions", true), anal);
 	r_serialize_anal_meta_save (sdb_ns (db, "meta", true), anal);
 	r_serialize_anal_hints_save (sdb_ns (db, "hints", true), anal);
+	r_serialize_anal_classes_save (sdb_ns (db, "classes", true), anal);
 }
 
 R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
@@ -1889,6 +1909,7 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 
 	SUB ("meta", r_serialize_anal_meta_load (subdb, anal, err));
 	SUB ("hints", r_serialize_anal_hints_load (subdb, anal, err));
+	SUB ("classes", r_serialize_anal_classes_load (subdb, anal, err));
 
 	ret = true;
 beach:

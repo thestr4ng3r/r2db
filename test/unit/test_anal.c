@@ -1081,6 +1081,131 @@ bool test_anal_hints_load() {
 	mu_end;
 }
 
+Sdb *classes_ref_db() {
+	Sdb *db = sdb_new0 ();
+	sdb_set (db, "Aeropause", "c", 0);
+	sdb_set (db, "Bright", "c", 0);
+	Sdb *attrs_db = sdb_ns (db, "attrs", true);
+	sdb_set (attrs_db, "attrtypes.Bright", "base", 0);
+	sdb_set (attrs_db, "attr.Aeropause.vtable.0", "0x1000,4,80", 0);
+	sdb_set (attrs_db, "attrtypes.Aeropause", "method,vtable", 0);
+	sdb_set (attrs_db, "attr.Aeropause.method", "some_meth,some_other_meth", 0);
+	sdb_set (attrs_db, "attr.Bright.base", "0", 0);
+	sdb_set (attrs_db, "attr.Aeropause.vtable", "0", 0);
+	sdb_set (attrs_db, "attr.Bright.base.0", "Aeropause,8", 0);
+	sdb_set (attrs_db, "attr.Aeropause.method.some_meth", "4919,42", 0);
+	sdb_set (attrs_db, "attr.Aeropause.method.some_other_meth", "4660,32", 0);
+	return db;
+}
+
+bool test_anal_classes_save() {
+	RAnal *anal = r_anal_new ();
+
+	r_anal_class_create (anal, "Aeropause");
+	RAnalMethod crystal = {
+		.name = strdup ("some_meth"),
+		.addr = 0x1337,
+		.vtable_offset = 42
+	};
+	r_anal_class_method_set (anal, "Aeropause", &crystal);
+	r_anal_class_method_fini (&crystal);
+
+	RAnalMethod meth = {
+		.name = strdup ("some_other_meth"),
+		.addr = 0x1234,
+		.vtable_offset = 0x20
+	};
+	r_anal_class_method_set (anal, "Aeropause", &meth);
+	r_anal_class_method_fini (&meth);
+
+	r_anal_class_create (anal, "Bright");
+	RAnalBaseClass base = {
+		.id = NULL,
+		.offset = 8,
+		.class_name = strdup ("Aeropause")
+	};
+	r_anal_class_base_set (anal, "Bright", &base);
+	r_anal_class_base_fini (&base);
+
+	RAnalVTable vt = {
+		.id = NULL,
+		.offset = 4,
+		.addr = 0x1000,
+		.size = 0x50
+	};
+	r_anal_class_vtable_set (anal, "Aeropause", &vt);
+	r_anal_class_vtable_fini (&vt);
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_classes_save (db, anal);
+
+	Sdb *expected = classes_ref_db ();
+	assert_sdb_eq (db, expected, "classes save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_classes_load() {
+	RAnal *anal = r_anal_new ();
+	Sdb *db = classes_ref_db ();
+	bool succ = r_serialize_anal_classes_load (db, anal, NULL);
+	sdb_free (db);
+	mu_assert ("load success", succ);
+
+	SdbList *classes = r_anal_class_get_all (anal, true);
+	mu_assert_eq (classes->length, 2, "classes count");
+	SdbListIter *iter = ls_head (classes);
+	SdbKv *kv = ls_iter_get (iter);
+	mu_assert_streq (sdbkv_key (kv), "Aeropause", "class");
+	kv = ls_iter_get (iter);
+	mu_assert_streq (sdbkv_key (kv), "Bright", "class");
+	ls_free (classes);
+
+	RVector *vals = r_anal_class_method_get_all (anal, "Aeropause");
+	mu_assert_eq (vals->len, 2, "method count");
+	RAnalMethod *meth = r_vector_index_ptr (vals, 0);
+	mu_assert_streq (meth->name, "some_meth", "method name");
+	mu_assert_eq (meth->addr, 0x1337, "method addr");
+	mu_assert_eq (meth->vtable_offset, 42, "method vtable offset");
+	meth = r_vector_index_ptr (vals, 1);
+	mu_assert_streq (meth->name, "some_other_meth", "method name");
+	mu_assert_eq (meth->addr, 0x1234, "method addr");
+	mu_assert_eq (meth->vtable_offset, 0x20, "method vtable offset");
+	r_vector_free (vals);
+
+	vals = r_anal_class_base_get_all (anal, "Aeropause");
+	mu_assert_eq (vals->len, 0, "base count");
+	r_vector_free (vals);
+
+	vals = r_anal_class_vtable_get_all (anal, "Aeropause");
+	mu_assert_eq (vals->len, 1, "vtable count");
+	RAnalVTable *vt = r_vector_index_ptr (vals, 0);
+	mu_assert_eq (vt->offset, 4, "vtable offset");
+	mu_assert_eq (vt->addr, 0x1000, "vtable addr");
+	mu_assert_eq (vt->size, 0x50, "vtable size");
+	r_vector_free (vals);
+
+	vals = r_anal_class_method_get_all (anal, "Bright");
+	mu_assert_eq (vals->len, 0, "method count");
+	r_vector_free (vals);
+
+	vals = r_anal_class_base_get_all (anal, "Bright");
+	mu_assert_eq (vals->len, 1, "base count");
+	RAnalBaseClass *base = r_vector_index_ptr (vals, 0);
+	mu_assert_eq (base->offset, 8, "base class offset");
+	mu_assert_streq (base->class_name, "Aeropause", "base class name");
+	r_vector_free (vals);
+
+	vals = r_anal_class_vtable_get_all (anal, "Bright");
+	mu_assert_eq (vals->len, 0, "vtable count");
+	r_vector_free (vals);
+
+	r_anal_free (anal);
+	mu_end;
+}
+
 Sdb *anal_ref_db() {
 	Sdb *db = sdb_new0 ();
 
@@ -1195,6 +1320,8 @@ int all_tests() {
 	mu_run_test (test_anal_meta_load);
 	mu_run_test (test_anal_hints_save);
 	mu_run_test (test_anal_hints_load);
+	mu_run_test (test_anal_classes_save);
+	mu_run_test (test_anal_classes_load);
 	mu_run_test (test_anal_save);
 	mu_run_test (test_anal_load);
 	return tests_passed != tests_run;

@@ -1232,7 +1232,11 @@ Sdb *anal_ref_db() {
 	sdb_set (hints, "0x10e1", "{\"arch\":\"arm\"}", 0);
 
 	Sdb *classes = sdb_ns (db, "classes", true);
-	sdb_ns (classes, "attrs", true);
+	sdb_set (classes, "Aeropause", "c", 0);
+	Sdb *class_attrs = sdb_ns (classes, "attrs", true);
+	sdb_set (class_attrs, "attrtypes.Aeropause", "method", 0);
+	sdb_set (class_attrs, "attr.Aeropause.method", "some_meth", 0);
+	sdb_set (class_attrs, "attr.Aeropause.method.some_meth", "4919,42", 0);
 
 	sdb_ns (db, "types", true);
 
@@ -1261,6 +1265,15 @@ bool test_anal_save() {
 	r_meta_set_string (anal, R_META_TYPE_COMMENT, 0x1337, "some comment");
 
 	r_anal_hint_set_arch (anal, 4321, "arm");
+
+	r_anal_class_create (anal, "Aeropause");
+	RAnalMethod crystal = {
+		.name = strdup ("some_meth"),
+		.addr = 0x1337,
+		.vtable_offset = 42
+	};
+	r_anal_class_method_set (anal, "Aeropause", &crystal);
+	r_anal_class_method_fini (&crystal);
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -1300,6 +1313,18 @@ bool test_anal_load() {
 
 	const char *hint = r_anal_hint_arch_at (anal, 4321, NULL);
 	mu_assert_streq (hint, "arm", "hint");
+
+	SdbList *classes = r_anal_class_get_all (anal, true);
+	mu_assert_eq (classes->length, 1, "classes count");
+	SdbListIter *siter = ls_head (classes);
+	SdbKv *kv = ls_iter_get (siter);
+	mu_assert_streq (sdbkv_key (kv), "Aeropause", "class");
+	ls_free (classes);
+	RVector *vals = r_anal_class_method_get_all (anal, "Aeropause");
+	mu_assert_eq (vals->len, 1, "method count");
+	RAnalMethod *meth = r_vector_index_ptr (vals, 0);
+	mu_assert_streq (meth->name, "some_meth", "method name");
+	r_vector_free (vals);
 
 	r_anal_free (anal);
 	mu_end;

@@ -1234,6 +1234,8 @@ Sdb *anal_ref_db() {
 	Sdb *classes = sdb_ns (db, "classes", true);
 	sdb_ns (classes, "attrs", true);
 
+	sdb_ns (db, "types", true);
+
 	return db;
 }
 

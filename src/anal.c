@@ -17,7 +17,8 @@
  *   /functions
  *     0x<addr>={name:<str>, bits?:<int>, type:<int>, cc?:<str>, stack:<int>, maxstack:<int>,
  *               ninstr:<int>, folded?:<bool>, pure?:<bool>, bp_frame?:<bool>, noreturn?:<bool>,
- *               fingerprint?:"<base64>", diff?:<RAnalDiff>, bbs:[<ut64>], imports?:[<str>], vars?:[<RAnalVar>]}
+ *               fingerprint?:"<base64>", diff?:<RAnalDiff>, bbs:[<ut64>], imports?:[<str>], vars?:[<RAnalVar>],
+ *               labels?: {<str>:<ut64>}}
  *   /xrefs
  *     0x<addr>=[{to:<ut64>, type?:"c"|"C"|"d"|"s"}]
  *
@@ -809,6 +810,11 @@ beach:
 	return ret;
 }
 
+static bool store_label_cb(void *j, const ut64 k, const void *v) {
+	pj_kn (j, v, k);
+	return true;
+}
+
 static void function_store(R_NONNULL Sdb *db, const char *key, RAnalFunction *function) {
 	PJ *j = pj_new ();
 	if (!j) {
@@ -878,6 +884,12 @@ static void function_store(R_NONNULL Sdb *db, const char *key, RAnalFunction *fu
 		pj_end (j);
 	}
 
+	if (function->labels->count) {
+		pj_ko (j, "labels");
+		ht_up_foreach (function->labels, store_label_cb, j);
+		pj_end (j);
+	}
+
 	pj_end (j);
 	sdb_set (db, key, pj_string (j), 0);
 	pj_free (j);
@@ -911,7 +923,8 @@ enum {
 	FUNCTION_FIELD_DIFF,
 	FUNCTION_FIELD_BBS,
 	FUNCTION_FIELD_IMPORTS,
-	FUNCTION_FIELD_VARS
+	FUNCTION_FIELD_VARS,
+	FUNCTION_FIELD_LABELS
 };
 
 typedef struct {
@@ -1094,6 +1107,19 @@ static bool function_load_cb(void *user, const char *k, const char *v) {
 			vars_json = child;
 			break;
 		}
+		case FUNCTION_FIELD_LABELS: {
+			if (child->type != R_JSON_OBJECT) {
+				break;
+			}
+			RJson *baby;
+			for (baby = child->children.first; baby; baby = baby->next) {
+				if (baby->type != R_JSON_INTEGER) {
+					continue;
+				}
+				r_anal_function_set_label (function, baby->key, baby->num.u_value);
+			}
+			break;
+		}
 		default:
 			break;
 	})
@@ -1150,6 +1176,7 @@ R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *a
 	key_parser_add (ctx.parser, "bbs", FUNCTION_FIELD_BBS);
 	key_parser_add (ctx.parser, "imports", FUNCTION_FIELD_IMPORTS);
 	key_parser_add (ctx.parser, "vars", FUNCTION_FIELD_VARS);
+	key_parser_add (ctx.parser, "labels", FUNCTION_FIELD_LABELS);
 	ret = sdb_foreach (db, function_load_cb, &ctx);
 	if (!ret) {
 		SERIALIZE_ERR ("functions parsing failed");

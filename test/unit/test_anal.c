@@ -270,7 +270,7 @@ Sdb *functions_ref_db() {
 	Sdb *db = sdb_new0 ();
 	sdb_set (db, "0x4d2", "{\"name\":\"effekt\",\"type\":1,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"pure\":true,\"diff\":{},\"bbs\":[1337]}", 0);
 	sdb_set (db, "0xbeef", "{\"name\":\"eskapist\",\"bits\":32,\"type\":16,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[]}", 0);
-	sdb_set (db, "0x539", "{\"name\":\"hirsch\",\"bits\":16,\"type\":0,\"cc\":\"fancycall\",\"stack\":42,\"maxstack\":123,\"ninstr\":13,\"folded\":true,\"bp_frame\":true,\"fingerprint\":\"AAECAwQFBgcICQoLDA0ODw==\",\"diff\":{\"addr\":4321},\"bbs\":[1337,1234],\"imports\":[\"earth\",\"rise\"]}", 0);
+	sdb_set (db, "0x539", "{\"name\":\"hirsch\",\"bits\":16,\"type\":0,\"cc\":\"fancycall\",\"stack\":42,\"maxstack\":123,\"ninstr\":13,\"folded\":true,\"bp_frame\":true,\"fingerprint\":\"AAECAwQFBgcICQoLDA0ODw==\",\"diff\":{\"addr\":4321},\"bbs\":[1337,1234],\"imports\":[\"earth\",\"rise\"],\"labels\":{\"beach\":1400,\"another\":1450,\"year\":1440}}", 0);
 	sdb_set (db, "0xdead", "{\"name\":\"agnosie\",\"bits\":32,\"type\":8,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[]}", 0);
 	sdb_set (db, "0xc0ffee", "{\"name\":\"lifnej\",\"bits\":32,\"type\":32,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[]}", 0);
 	sdb_set (db, "0x1092", "{\"name\":\"hiberno\",\"bits\":32,\"type\":2,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"diff\":{},\"bbs\":[]}", 0);
@@ -304,6 +304,9 @@ bool test_anal_function_save() {
 	f->imports = r_list_newf (free);
 	r_list_push (f->imports, strdup ("earth"));
 	r_list_push (f->imports, strdup ("rise"));
+	r_anal_function_set_label (f, "beach", 1400);
+	r_anal_function_set_label (f, "another", 1450);
+	r_anal_function_set_label (f, "year", 1440);
 
 	f = r_anal_create_function (anal, "effekt", 1234, R_ANAL_FCN_TYPE_FCN, NULL);
 	r_anal_function_add_block (f, ba);
@@ -378,6 +381,10 @@ bool test_anal_function_load() {
 	mu_assert_eq (r_list_length (f->imports), 2, "imports count");
 	mu_assert_streq (r_list_get_n (f->imports, 0), "earth", "import");
 	mu_assert_streq (r_list_get_n (f->imports, 1), "rise", "import");
+	mu_assert_eq (f->labels->count, 3, "labels count");
+	mu_assert_eq (r_anal_function_get_label (f, "beach"), 1400, "label");
+	mu_assert_eq (r_anal_function_get_label (f, "another"), 1450, "label");
+	mu_assert_eq (r_anal_function_get_label (f, "year"), 1440, "label");
 
 	f = r_anal_get_function_at (anal, 1234);
 	mu_assert_notnull (f, "function");
@@ -397,6 +404,7 @@ bool test_anal_function_load() {
 	mu_assert_null (f->fingerprint, "fingerprint");
 	mu_assert_notnull (f->diff, "diff");
 	mu_assert_null (f->imports, "imports");
+	mu_assert_eq (f->labels->count, 0, "labels count");
 
 	f = r_anal_get_function_at (anal, 4242);
 	mu_assert_notnull (f, "function");
@@ -415,6 +423,7 @@ bool test_anal_function_load() {
 	mu_assert_null (f->fingerprint, "fingerprint");
 	mu_assert_notnull (f->diff, "diff");
 	mu_assert_null (f->imports, "imports");
+	mu_assert_eq (f->labels->count, 0, "labels count");
 
 	f = r_anal_get_function_at (anal, 424242);
 	mu_assert_notnull (f, "function");
@@ -433,26 +442,31 @@ bool test_anal_function_load() {
 	mu_assert_null (f->fingerprint, "fingerprint");
 	mu_assert_notnull (f->diff, "diff");
 	mu_assert_null (f->imports, "imports");
+	mu_assert_eq (f->labels->count, 0, "labels count");
 
 	f = r_anal_get_function_at (anal, 0xdead);
 	mu_assert_notnull (f, "function");
 	mu_assert_streq (f->name, "agnosie", "name");
 	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_IMP, "type");
+	mu_assert_eq (f->labels->count, 0, "labels count");
 
 	f = r_anal_get_function_at (anal, 0xbeef);
 	mu_assert_notnull (f, "function");
 	mu_assert_streq (f->name, "eskapist", "name");
 	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_INT, "type");
+	mu_assert_eq (f->labels->count, 0, "labels count");
 
 	f = r_anal_get_function_at (anal, 0xc0ffee);
 	mu_assert_notnull (f, "function");
 	mu_assert_streq (f->name, "lifnej", "name");
 	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_ROOT, "type");
+	mu_assert_eq (f->labels->count, 0, "labels count");
 
 	f = r_anal_get_function_at (anal, 0x31337);
 	mu_assert_notnull (f, "function");
 	mu_assert_streq (f->name, "aldebaran", "name");
 	mu_assert_eq (f->type, R_ANAL_FCN_TYPE_ANY, "type");
+	mu_assert_eq (f->labels->count, 0, "labels count");
 
 	sdb_free (db);
 	r_anal_free (anal);

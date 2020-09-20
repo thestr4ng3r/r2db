@@ -36,6 +36,11 @@
  *     /attrs
  *       <direct dump of RAnal.sdb_classes_attrs>
  *
+ *   /zigns
+ *     <direct dump of RAnal.sdb_zigns>
+ *     /spaces
+ *       see spaces.c
+ *
  * RAnalDiff JSON:
  * {type?:"m"|"u", addr:<ut64>, dist:<double>, name?:<str>, size:<ut32>}
  *
@@ -1902,6 +1907,25 @@ R_API bool r_serialize_anal_types_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal,
 	return true;
 }
 
+R_API void r_serialize_anal_sign_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	sdb_copy (anal->sdb_zigns, db);
+	r_serialize_spaces_save (sdb_ns (db, "spaces", true), &anal->zign_spaces);
+}
+
+R_API bool r_serialize_anal_sign_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	sdb_reset (anal->sdb_zigns);
+	sdb_copy (db, anal->sdb_zigns);
+	Sdb *spaces_db = sdb_ns (db, "spaces", false);
+	if (!spaces_db) {
+		SERIALIZE_ERR ("missing spaces namespace");
+		return false;
+	}
+	if (!r_serialize_spaces_load (spaces_db, &anal->zign_spaces, false, err)) {
+		return false;
+	}
+	return true;
+}
+
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_xrefs_save (sdb_ns (db, "xrefs", true), anal);
 	r_serialize_anal_blocks_save (sdb_ns (db, "blocks", true), anal);
@@ -1910,6 +1934,7 @@ R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_hints_save (sdb_ns (db, "hints", true), anal);
 	r_serialize_anal_classes_save (sdb_ns (db, "classes", true), anal);
 	r_serialize_anal_types_save (sdb_ns (db, "types", true), anal);
+	r_serialize_anal_sign_save (sdb_ns (db, "zigns", true), anal);
 }
 
 R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
@@ -1949,6 +1974,7 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 	SUB ("hints", r_serialize_anal_hints_load (subdb, anal, err));
 	SUB ("classes", r_serialize_anal_classes_load (subdb, anal, err));
 	SUB ("types", r_serialize_anal_types_load (subdb, anal, err));
+	SUB ("zigns", r_serialize_anal_sign_load (subdb, anal, err));
 
 	ret = true;
 beach:

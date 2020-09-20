@@ -62,6 +62,8 @@ R_API void r_serialize_anal_classes_save(R_NONNULL Sdb *db, R_NONNULL RAnal *ana
 R_API bool r_serialize_anal_classes_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);
 R_API void r_serialize_anal_types_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API bool r_serialize_anal_types_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);
+R_API void r_serialize_anal_sign_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
+R_API bool r_serialize_anal_sign_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);

@@ -1401,6 +1401,87 @@ bool test_anal_types_load() {
 	mu_end;
 }
 
+Sdb *sign_ref_db() {
+	Sdb *db = sdb_new0 ();
+	Sdb *spaces = sdb_ns (db, "spaces", true);
+	sdb_set (spaces, "spacestack", "[\"*\"]", 0);
+	sdb_set (spaces, "name", "zs", 0);
+	sdb_ns (spaces, "spaces", true);
+	sdb_set (db, "zign|*|sym.mahboi", "|s:4|b:deadbeef|m:c0ffee42|o:4919|g:7b0000000b0000000c0000000d0000002a000000|r:gwonam,link|x:king,ganon|v:r16,s42,b13|t:func.sym.mahboi.ret=char *,func.sym.mahboi.args=2,func.sym.mahboi.arg.0=\"int,arg0\",func.sym.mahboi.arg.1=\"uint32_t,die\"|c:This peace is what all true warriors strive for|n:sym.Mah.Boi|h:7bfa1358c427e26bc03c2384f41de7be6ebc01958a57e9a6deda5bdba9768851", 0);
+	return db;
+}
+
+bool test_anal_sign_save() {
+	RAnal *anal = r_anal_new ();
+
+	RSignItem *item = r_sign_item_new ();
+	item->name = strdup ("sym.mahboi");
+	item->realname = strdup ("sym.Mah.Boi");
+	item->comment = strdup ("This peace is what all true warriors strive for");
+
+	item->bytes = R_NEW0 (RSignBytes);
+	item->bytes->size = 4;
+	item->bytes->bytes = (ut8 *)strdup ("\xde\xad\xbe\xef");
+	item->bytes->mask = (ut8 *)strdup ("\xc0\xff\xee\x42");
+
+	item->graph = R_NEW0 (RSignGraph);
+	item->graph->bbsum = 42;
+	item->graph->cc = 123;
+	item->graph->ebbs = 13;
+	item->graph->edges = 12;
+	item->graph->nbbs = 11;
+
+	item->addr = 0x1337;
+
+	item->refs = r_list_newf (free);
+	r_list_append (item->refs, strdup ("gwonam"));
+	r_list_append (item->refs, strdup ("link"));
+
+	item->xrefs = r_list_newf (free);
+	r_list_append (item->xrefs, strdup ("king"));
+	r_list_append (item->xrefs, strdup ("ganon"));
+
+	item->vars = r_list_newf (free);
+	r_list_append (item->vars, strdup ("r16"));
+	r_list_append (item->vars, strdup ("s42"));
+	r_list_append (item->vars, strdup ("b13"));
+
+	item->types = r_list_newf (free);
+	r_list_append (item->types, strdup ("func.sym.mahboi.ret=char *"));
+	r_list_append (item->types, strdup ("func.sym.mahboi.args=2"));
+	r_list_append (item->types, strdup ("func.sym.mahboi.arg.0=\"int,arg0\""));
+	r_list_append (item->types, strdup ("func.sym.mahboi.arg.1=\"uint32_t,die\""));
+
+	item->hash = R_NEW0 (RSignHash);
+	item->hash->bbhash = strdup ("7bfa1358c427e26bc03c2384f41de7be6ebc01958a57e9a6deda5bdba9768851");
+
+	r_sign_anal_additem (anal, item);
+	r_sign_item_free (item);
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_sign_save (db, anal);
+
+	Sdb *expected = sign_ref_db ();
+	assert_sdb_eq (db, expected, "zignatures save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_sign_load() {
+	RAnal *anal = r_anal_new ();
+	Sdb *db = sign_ref_db ();
+	bool succ = r_serialize_anal_sign_load (db, anal, NULL);
+	sdb_free (db);
+	mu_assert ("load success", succ);
+
+	// TODO
+
+	r_anal_free (anal);
+	mu_end;
+}
+
 Sdb *anal_ref_db() {
 	Sdb *db = sdb_new0 ();
 
@@ -1434,6 +1515,12 @@ Sdb *anal_ref_db() {
 	sdb_set (class_attrs, "attr.Aeropause.method.some_meth", "4919,42", 0);
 
 	sdb_ns (db, "types", true);
+
+	Sdb *zigns = sdb_ns (db, "zigns", true);
+	Sdb *zign_spaces = sdb_ns (zigns, "spaces", true);
+	sdb_set (zign_spaces, "spacestack", "[\"*\"]", 0);
+	sdb_set (zign_spaces, "name", "zs", 0);
+	sdb_ns (zign_spaces, "spaces", true);
 
 	return db;
 }
@@ -1546,6 +1633,8 @@ int all_tests() {
 	mu_run_test (test_anal_classes_load);
 	mu_run_test (test_anal_types_save);
 	mu_run_test (test_anal_types_load);
+	mu_run_test (test_anal_sign_save);
+	mu_run_test (test_anal_sign_load);
 	mu_run_test (test_anal_save);
 	mu_run_test (test_anal_load);
 	return tests_passed != tests_run;

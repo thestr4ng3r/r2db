@@ -1524,6 +1524,7 @@ bool test_anal_sign_load() {
 	r_spaces_set (&anal->zign_spaces, "koridai");
 	item = r_sign_get_item (anal, "sym.boring");
 	mu_assert_notnull (item, "get item in space");
+	mu_assert_streq (item->comment, "gee it sure is boring around here", "item in space comment");
 
 	r_anal_free (anal);
 	mu_end;
@@ -1561,13 +1562,18 @@ Sdb *anal_ref_db() {
 	sdb_set (class_attrs, "attr.Aeropause.method", "some_meth", 0);
 	sdb_set (class_attrs, "attr.Aeropause.method.some_meth", "4919,42", 0);
 
-	sdb_ns (db, "types", true);
+	Sdb *types = sdb_ns (db, "types", true);
+	sdb_set (types, "badchar", "type", 0);
+	sdb_set (types, "type.badchar.size", "16", 0);
+	sdb_set (types, "type.badchar", "c", 0);
 
 	Sdb *zigns = sdb_ns (db, "zigns", true);
 	Sdb *zign_spaces = sdb_ns (zigns, "spaces", true);
-	sdb_set (zign_spaces, "spacestack", "[\"*\"]", 0);
+	sdb_set (zign_spaces, "spacestack", "[\"koridai\"]", 0);
 	sdb_set (zign_spaces, "name", "zs", 0);
-	sdb_ns (zign_spaces, "spaces", true);
+	Sdb *zign_spaces_spaces = sdb_ns (zign_spaces, "spaces", true);
+	sdb_set (zign_spaces_spaces, "koridai", "s", 0);
+	sdb_set (zigns, "zign|koridai|sym.boring", "|c:gee it sure is boring around here", 0);
 
 	return db;
 }
@@ -1604,7 +1610,15 @@ bool test_anal_save() {
 	r_anal_class_method_set (anal, "Aeropause", &crystal);
 	r_anal_class_method_fini (&crystal);
 
-	// TODO: types, zignatures
+	RAnalBaseType *type = r_anal_base_type_new (R_ANAL_BASE_TYPE_KIND_ATOMIC);
+	type->name = strdup ("badchar");
+	type->size = 16;
+	type->type = strdup ("c");
+	r_anal_save_base_type (anal, type);
+	r_anal_base_type_free (type);
+
+	r_spaces_set (&anal->zign_spaces, "koridai");
+	r_sign_add_comment (anal, "sym.boring", "gee it sure is boring around here");
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -1657,7 +1671,17 @@ bool test_anal_load() {
 	mu_assert_streq (meth->name, "some_meth", "method name");
 	r_vector_free (vals);
 
-	// TODO: types, zignatures
+	RAnalBaseType *type = r_anal_get_base_type (anal, "badchar");
+	mu_assert_notnull (type, "get type");
+	mu_assert_eq (type->kind, R_ANAL_BASE_TYPE_KIND_ATOMIC, "type kind");
+	mu_assert_eq (type->size, 16, "atomic type size");
+	mu_assert_streq (type->type, "c", "atomic type");
+	r_anal_base_type_free (type);
+
+	r_spaces_set (&anal->zign_spaces, "koridai");
+	RSignItem *item = r_sign_get_item (anal, "sym.boring");
+	mu_assert_notnull (item, "get item in space");
+	mu_assert_streq (item->comment, "gee it sure is boring around here", "item in space comment");
 
 	r_anal_free (anal);
 	mu_end;

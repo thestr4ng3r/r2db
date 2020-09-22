@@ -285,7 +285,7 @@ bool test_anal_function_save() {
 	RAnalBlock *ba = r_anal_create_block (anal, 1337, 42);
 	RAnalBlock *bb = r_anal_create_block (anal, 1234, 32);
 
-	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, r_anal_diff_new ());
+	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, NULL);
 	r_anal_function_add_block (f, ba);
 	r_anal_function_add_block (f, bb);
 	f->bits = 16;
@@ -490,7 +490,7 @@ bool test_anal_var_save() {
 	r_anal_use (anal, "x86");
 	r_anal_set_bits (anal, 64);
 
-	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, r_anal_diff_new ());
+	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, NULL);
 
 	RRegItem *rax = r_reg_get (anal->reg, "rax", -1);
 	RAnalVar *v = r_anal_function_set_var (f, rax->index, R_ANAL_VAR_KIND_REG, "int64_t", 0, true, "arg_rax");
@@ -1586,7 +1586,7 @@ bool test_anal_save() {
 	RAnalBlock *ba = r_anal_create_block (anal, 1337, 42);
 	RAnalBlock *bb = r_anal_create_block (anal, 1234, 32);
 
-	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, r_anal_diff_new ());
+	RAnalFunction *f = r_anal_create_function (anal, "hirsch", 1337, R_ANAL_FCN_TYPE_NULL, NULL);
 	r_anal_function_add_block (f, ba);
 	r_anal_function_add_block (f, bb);
 

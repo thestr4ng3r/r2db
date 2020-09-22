@@ -1577,6 +1577,8 @@ Sdb *anal_ref_db() {
 	sdb_set (zign_spaces_spaces, "koridai", "s", 0);
 	sdb_set (zigns, "zign|koridai|sym.boring", "|c:gee it sure is boring around here", 0);
 
+	sdb_set (db, "imports", "[\"pigs\",\"dogs\",\"sheep\"]", 0);
+
 	return db;
 }
 
@@ -1621,6 +1623,10 @@ bool test_anal_save() {
 
 	r_spaces_set (&anal->zign_spaces, "koridai");
 	r_sign_add_comment (anal, "sym.boring", "gee it sure is boring around here");
+
+	r_anal_add_import (anal, "pigs");
+	r_anal_add_import (anal, "dogs");
+	r_anal_add_import (anal, "sheep");
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -1685,6 +1691,11 @@ bool test_anal_load() {
 	mu_assert_notnull (item, "get item in space");
 	mu_assert_streq (item->comment, "gee it sure is boring around here", "item in space comment");
 	r_sign_item_free (item);
+
+	mu_assert_eq (r_list_length (anal->imports), 3, "imports count");
+	mu_assert_streq (r_list_get_n (anal->imports, 0), "pigs", "import");
+	mu_assert_streq (r_list_get_n (anal->imports, 1), "dogs", "import");
+	mu_assert_streq (r_list_get_n (anal->imports, 2), "sheep", "import");
 
 	r_anal_free (anal);
 	mu_end;

@@ -1926,6 +1926,52 @@ R_API bool r_serialize_anal_sign_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, 
 	return true;
 }
 
+R_API void r_serialize_anal_imports_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	PJ *j = pj_new ();
+	if (!j) {
+		return;
+	}
+	pj_a (j);
+	RListIter *it;
+	const char *imp;
+	r_list_foreach (anal->imports, it, imp) {
+		pj_s (j, imp);
+	}
+	pj_end (j);
+	sdb_set (db, "imports", pj_string (j), 0);
+	pj_free (j);
+}
+
+R_API bool r_serialize_anal_imports_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	char *json_str = sdb_get (db, "imports", 0);
+	if (!json_str) {
+		SERIALIZE_ERR ("missing imports key");
+		return false;
+	}
+	RJson *j = r_json_parse (json_str);
+	bool ret = false;
+	if (!j) {
+		SERIALIZE_ERR ("invalid imports json");
+		goto beach;
+	}
+	if (j->type != R_JSON_ARRAY) {
+		SERIALIZE_ERR ("imports is not an array");
+		goto beach;
+	}
+	RJson *child;
+	for (child = j->children.first; child; child = child->next) {
+		if (child->type != R_JSON_STRING) {
+			continue;
+		}
+		r_anal_add_import (anal, child->str_value);
+	}
+	ret = true;
+beach:
+	r_json_free (j);
+	free (json_str);
+	return ret;
+}
+
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_xrefs_save (sdb_ns (db, "xrefs", true), anal);
 	r_serialize_anal_blocks_save (sdb_ns (db, "blocks", true), anal);
@@ -1935,6 +1981,7 @@ R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_classes_save (sdb_ns (db, "classes", true), anal);
 	r_serialize_anal_types_save (sdb_ns (db, "types", true), anal);
 	r_serialize_anal_sign_save (sdb_ns (db, "zigns", true), anal);
+	r_serialize_anal_imports_save (db, anal);
 }
 
 R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
@@ -1975,6 +2022,9 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 	SUB ("classes", r_serialize_anal_classes_load (subdb, anal, err));
 	SUB ("types", r_serialize_anal_types_load (subdb, anal, err));
 	SUB ("zigns", r_serialize_anal_sign_load (subdb, anal, err));
+	if (!r_serialize_anal_imports_load (db, anal, err)) {
+		goto beach;
+	}
 
 	ret = true;
 beach:

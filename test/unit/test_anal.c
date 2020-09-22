@@ -1404,10 +1404,12 @@ bool test_anal_types_load() {
 Sdb *sign_ref_db() {
 	Sdb *db = sdb_new0 ();
 	Sdb *spaces = sdb_ns (db, "spaces", true);
-	sdb_set (spaces, "spacestack", "[\"*\"]", 0);
+	sdb_set (spaces, "spacestack", "[\"koridai\"]", 0);
 	sdb_set (spaces, "name", "zs", 0);
-	sdb_ns (spaces, "spaces", true);
+	Sdb *spaces_spaces = sdb_ns (spaces, "spaces", true);
+	sdb_set (spaces_spaces, "koridai", "s", 0);
 	sdb_set (db, "zign|*|sym.mahboi", "|s:4|b:deadbeef|m:c0ffee42|o:4919|g:7b0000000b0000000c0000000d0000002a000000|r:gwonam,link|x:king,ganon|v:r16,s42,b13|t:func.sym.mahboi.ret=char *,func.sym.mahboi.args=2,func.sym.mahboi.arg.0=\"int,arg0\",func.sym.mahboi.arg.1=\"uint32_t,die\"|c:This peace is what all true warriors strive for|n:sym.Mah.Boi|h:7bfa1358c427e26bc03c2384f41de7be6ebc01958a57e9a6deda5bdba9768851", 0);
+	sdb_set (db, "zign|koridai|sym.boring", "|c:gee it sure is boring around here", 0);
 	return db;
 }
 
@@ -1455,8 +1457,11 @@ bool test_anal_sign_save() {
 	item->hash = R_NEW0 (RSignHash);
 	item->hash->bbhash = strdup ("7bfa1358c427e26bc03c2384f41de7be6ebc01958a57e9a6deda5bdba9768851");
 
-	r_sign_anal_additem (anal, item);
+	r_sign_add_item (anal, item);
 	r_sign_item_free (item);
+
+	r_spaces_set (&anal->zign_spaces, "koridai");
+	r_sign_add_comment (anal, "sym.boring", "gee it sure is boring around here");
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_sign_save (db, anal);
@@ -1476,7 +1481,49 @@ bool test_anal_sign_load() {
 	sdb_free (db);
 	mu_assert ("load success", succ);
 
-	// TODO
+	r_spaces_set (&anal->zign_spaces, NULL);
+	RSignItem *item = r_sign_get_item (anal, "sym.mahboi");
+	mu_assert_notnull (item, "get item");
+
+	mu_assert_streq (item->name, "sym.mahboi", "name");
+	mu_assert_streq (item->realname, "sym.Mah.Boi", "realname");
+	mu_assert_streq (item->comment, "This peace is what all true warriors strive for", "comment");
+	mu_assert_notnull (item->bytes, "bytes");
+	mu_assert_eq (item->bytes->size, 4, "bytes size");
+	mu_assert_memeq (item->bytes->bytes, (ut8 *)"\xde\xad\xbe\xef", 4, "bytes bytes");
+	mu_assert_memeq (item->bytes->mask, (ut8 *)"\xc0\xff\xee\x42", 4, "bytes mask");
+	mu_assert_notnull (item->graph, "graph");
+	mu_assert_eq (item->graph->bbsum, 42, "graph bbsum");
+	mu_assert_eq (item->graph->cc, 123, "graph cc");
+	mu_assert_eq (item->graph->ebbs, 13, "graph ebbs");
+	mu_assert_eq (item->graph->edges, 12, "graph edges");
+	mu_assert_eq (item->graph->nbbs, 11, "graph nbbs");
+	mu_assert_eq (item->addr, 0x1337, "addr");
+	mu_assert_notnull (item->refs, "refs");
+	mu_assert_eq (r_list_length (item->refs), 2, "refs count");
+	mu_assert_streq (r_list_get_n (item->refs, 0), "gwonam", "ref");
+	mu_assert_streq (r_list_get_n (item->refs, 1), "link", "ref");
+	mu_assert_notnull (item->xrefs, "xrefs");
+	mu_assert_eq (r_list_length (item->xrefs), 2, "xrefs count");
+	mu_assert_streq (r_list_get_n (item->xrefs, 0), "king", "xref");
+	mu_assert_streq (r_list_get_n (item->xrefs, 1), "ganon", "xref");
+	mu_assert_notnull (item->vars, "vars");
+	mu_assert_eq (r_list_length (item->vars), 3, "vars count");
+	mu_assert_streq (r_list_get_n (item->vars, 0), "r16", "var");
+	mu_assert_streq (r_list_get_n (item->vars, 1), "s42", "var");
+	mu_assert_streq (r_list_get_n (item->vars, 2), "b13", "var");
+	mu_assert_notnull (item->types, "types");
+	mu_assert_eq (r_list_length (item->types), 4, "types count");
+	mu_assert_streq (r_list_get_n (item->types, 0), "func.sym.mahboi.ret=char *", "type");
+	mu_assert_streq (r_list_get_n (item->types, 1), "func.sym.mahboi.args=2", "type");
+	mu_assert_streq (r_list_get_n (item->types, 2), "func.sym.mahboi.arg.0=\"int,arg0\"", "type");
+	mu_assert_streq (r_list_get_n (item->types, 3), "func.sym.mahboi.arg.1=\"uint32_t,die\"", "type");
+	mu_assert_notnull (item->hash, "hash");
+	mu_assert_streq (item->hash->bbhash, "7bfa1358c427e26bc03c2384f41de7be6ebc01958a57e9a6deda5bdba9768851", "hash val");
+
+	r_spaces_set (&anal->zign_spaces, "koridai");
+	item = r_sign_get_item (anal, "sym.boring");
+	mu_assert_notnull (item, "get item in space");
 
 	r_anal_free (anal);
 	mu_end;
@@ -1557,6 +1604,8 @@ bool test_anal_save() {
 	r_anal_class_method_set (anal, "Aeropause", &crystal);
 	r_anal_class_method_fini (&crystal);
 
+	// TODO: types, zignatures
+
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
 
@@ -1607,6 +1656,8 @@ bool test_anal_load() {
 	RAnalMethod *meth = r_vector_index_ptr (vals, 0);
 	mu_assert_streq (meth->name, "some_meth", "method name");
 	r_vector_free (vals);
+
+	// TODO: types, zignatures
 
 	r_anal_free (anal);
 	mu_end;

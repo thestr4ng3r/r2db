@@ -2014,6 +2014,15 @@ beach:
 	return ret;
 }
 
+R_API void r_serialize_anal_pins_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
+	sdb_copy (anal->sdb_pins, db);
+}
+
+R_API bool r_serialize_anal_pins_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+	sdb_copy (db, anal->sdb_pins);
+	return true;
+}
+
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_xrefs_save (sdb_ns (db, "xrefs", true), anal);
 	r_serialize_anal_blocks_save (sdb_ns (db, "blocks", true), anal);
@@ -2024,6 +2033,7 @@ R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_types_save (sdb_ns (db, "types", true), anal);
 	r_serialize_anal_sign_save (sdb_ns (db, "zigns", true), anal);
 	r_serialize_anal_imports_save (db, anal);
+	r_serialize_anal_pins_save (sdb_ns (db, "pins", true), anal);
 }
 
 R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
@@ -2067,6 +2077,7 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 	if (!r_serialize_anal_imports_load (db, anal, err)) {
 		goto beach;
 	}
+	SUB ("pins", r_serialize_anal_pins_load (subdb, anal, err));
 
 	ret = true;
 beach:

@@ -1599,6 +1599,10 @@ Sdb *anal_ref_db() {
 
 	sdb_set (db, "imports", "[\"pigs\",\"dogs\",\"sheep\"]", 0);
 
+	Sdb *pins = sdb_ns (db, "pins", true);
+	sdb_set (pins, "0x1337", "!sudo rm -rf /", 0);
+	sdb_set (pins, "0xc0ffee", "pd 42", 0);
+
 	return db;
 }
 
@@ -1647,6 +1651,9 @@ bool test_anal_save() {
 	r_anal_add_import (anal, "pigs");
 	r_anal_add_import (anal, "dogs");
 	r_anal_add_import (anal, "sheep");
+
+	r_anal_pin (anal, 0x1337, "!sudo rm -rf /");
+	r_anal_pin (anal, 0xc0ffee, "pd 42");
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -1716,6 +1723,13 @@ bool test_anal_load() {
 	mu_assert_streq (r_list_get_n (anal->imports, 0), "pigs", "import");
 	mu_assert_streq (r_list_get_n (anal->imports, 1), "dogs", "import");
 	mu_assert_streq (r_list_get_n (anal->imports, 2), "sheep", "import");
+
+	size_t pin_count = sdb_count (anal->sdb_pins);
+	mu_assert_eq (pin_count, 2, "pins count");
+	const char *pin = r_anal_pin_call (anal, 0x1337);
+	mu_assert_streq (pin, "!sudo rm -rf /", "pin");
+	pin = r_anal_pin_call (anal, 0xc0ffee);
+	mu_assert_streq (pin, "pd 42", "pin");
 
 	r_anal_free (anal);
 	mu_end;

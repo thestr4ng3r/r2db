@@ -1552,6 +1552,55 @@ bool test_anal_sign_load() {
 	mu_end;
 }
 
+static Sdb *cc_ref_db() {
+	Sdb *db = sdb_new0 ();
+	sdb_set (db, "cc.sectarian.ret", "rax", 0);
+	sdb_set (db, "cc.sectarian.self", "rsi", 0);
+	sdb_set (db, "cc.sectarian.error", "rdi", 0);
+	sdb_set (db, "cc.sectarian.arg1", "rcx", 0);
+	sdb_set (db, "cc.sectarian.arg0", "rdx", 0);
+	sdb_set (db, "cc.sectarian.argn", "stack", 0);
+	sdb_set (db, "sectarian", "cc", 0);
+	return db;
+}
+
+bool test_anal_cc_save() {
+	RAnal *anal = r_anal_new ();
+
+	r_anal_cc_set (anal, "rax sectarian(rdx, rcx, stack)");
+	r_anal_cc_set_self (anal, "sectarian", "rsi");
+	r_anal_cc_set_error (anal, "sectarian", "rdi");
+
+	Sdb *db = sdb_new0 ();
+	r_serialize_anal_cc_save (db, anal);
+
+	Sdb *expected = cc_ref_db ();
+	assert_sdb_eq (db, expected, "cc save");
+	sdb_free (db);
+	sdb_free (expected);
+	r_anal_free (anal);
+	mu_end;
+}
+
+bool test_anal_cc_load() {
+	RAnal *anal = r_anal_new ();
+	Sdb *db = cc_ref_db ();
+	bool succ = r_serialize_anal_cc_load (db, anal, NULL);
+	sdb_free (db);
+	mu_assert ("load success", succ);
+
+	char *v = r_anal_cc_get (anal, "sectarian");
+	mu_assert_streq (v, "rax sectarian (rdx, rcx, stack, rsi, rdi);", "get cc");
+	free (v);
+	const char *vv = r_anal_cc_self (anal, "sectarian");
+	mu_assert_streq (vv, "rsi", "get self");
+	vv = r_anal_cc_error (anal, "sectarian");
+	mu_assert_streq (vv, "rdi", "get error");
+
+	r_anal_free (anal);
+	mu_end;
+}
+
 Sdb *anal_ref_db() {
 	Sdb *db = sdb_new0 ();
 
@@ -1602,6 +1651,13 @@ Sdb *anal_ref_db() {
 	Sdb *pins = sdb_ns (db, "pins", true);
 	sdb_set (pins, "0x1337", "!sudo rm -rf /", 0);
 	sdb_set (pins, "0xc0ffee", "pd 42", 0);
+
+	Sdb *cc = sdb_ns (db, "cc", true);
+	sdb_set (cc, "cc.sectarian.ret", "rax", 0);
+	sdb_set (cc, "cc.sectarian.arg1", "rcx", 0);
+	sdb_set (cc, "cc.sectarian.arg0", "rdx", 0);
+	sdb_set (cc, "cc.sectarian.argn", "stack", 0);
+	sdb_set (cc, "sectarian", "cc", 0);
 
 	return db;
 }
@@ -1654,6 +1710,8 @@ bool test_anal_save() {
 
 	r_anal_pin (anal, 0x1337, "!sudo rm -rf /");
 	r_anal_pin (anal, 0xc0ffee, "pd 42");
+
+	r_anal_cc_set (anal, "rax sectarian(rdx, rcx, stack)");
 
 	Sdb *db = sdb_new0 ();
 	r_serialize_anal_save (db, anal);
@@ -1731,6 +1789,9 @@ bool test_anal_load() {
 	pin = r_anal_pin_call (anal, 0xc0ffee);
 	mu_assert_streq (pin, "pd 42", "pin");
 
+	char *cc = r_anal_cc_get (anal, "sectarian");
+	mu_assert_streq (cc, "rax sectarian (rdx, rcx, stack);", "get cc");
+
 	r_anal_free (anal);
 	mu_end;
 }
@@ -1758,6 +1819,8 @@ int all_tests() {
 	mu_run_test (test_anal_types_load);
 	mu_run_test (test_anal_sign_save);
 	mu_run_test (test_anal_sign_load);
+	mu_run_test (test_anal_cc_save);
+	mu_run_test (test_anal_cc_load);
 	mu_run_test (test_anal_save);
 	mu_run_test (test_anal_load);
 	return tests_passed != tests_run;

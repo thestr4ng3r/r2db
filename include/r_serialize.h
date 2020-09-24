@@ -66,6 +66,10 @@ R_API void r_serialize_anal_sign_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API bool r_serialize_anal_sign_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);
 R_API void r_serialize_anal_imports_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API bool r_serialize_anal_imports_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);
+R_API void r_serialize_anal_pin_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
+R_API bool r_serialize_anal_pin_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);
+R_API void r_serialize_anal_cc_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
+R_API bool r_serialize_anal_cc_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);
 
 R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal);
 R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err);

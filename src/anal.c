@@ -52,7 +52,7 @@
  *
  * RAnalVar JSON:
  * {name:<str>, type:<str>, kind:"s|b|r", arg?:<bool>, delta?:<st64>, reg?:<str>, cmt?:<str>,
- *   accs?: [{off:<st64>, type:"r|w|rw", reg:<str>, sp?:<st64>}]}
+ *   accs?: [{off:<st64>, type:"r|w|rw", reg:<str>, sp?:<st64>}], constrs?:[<int>,<ut64>,...]}
  *
  */
 
@@ -620,6 +620,15 @@ R_API void r_serialize_anal_var_save(R_NONNULL PJ *j, R_NONNULL RAnalVar *var) {
 		}
 		pj_end (j);
 	}
+	if (!r_vector_empty (&var->constraints)) {
+		pj_ka (j, "constrs");
+		RAnalVarConstraint *constr;
+		r_vector_foreach (&var->constraints, constr) {
+			pj_i (j, (int)constr->cond);
+			pj_n (j, constr->val);
+		}
+		pj_end (j);
+	}
 	pj_end (j);
 }
 
@@ -631,7 +640,8 @@ enum {
 	VAR_FIELD_DELTA,
 	VAR_FIELD_REG,
 	VAR_FIELD_COMMENT,
-	VAR_FIELD_ACCS
+	VAR_FIELD_ACCS,
+	VAR_FIELD_CONSTRS
 };
 
 R_API RSerializeAnalVarParser r_serialize_anal_var_parser_new() {
@@ -647,6 +657,7 @@ R_API RSerializeAnalVarParser r_serialize_anal_var_parser_new() {
 	key_parser_add (parser, "reg", VAR_FIELD_REG);
 	key_parser_add (parser, "cmt", VAR_FIELD_COMMENT);
 	key_parser_add (parser, "accs", VAR_FIELD_ACCS);
+	key_parser_add (parser, "constrs", VAR_FIELD_CONSTRS);
 	return parser;
 }
 
@@ -667,6 +678,8 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 	const char *comment = NULL;
 	RVector accesses;
 	r_vector_init (&accesses, sizeof (RAnalVarAccess), NULL, NULL);
+	RVector constraints;
+	r_vector_init (&constraints, sizeof (RAnalVarConstraint), NULL, NULL);
 
 	RAnalVar *ret = NULL;
 
@@ -779,10 +792,34 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 			}
 			break;
 		}
+		case VAR_FIELD_CONSTRS: {
+			if (child->type != R_JSON_ARRAY) {
+				break;
+			}
+			RJson *baby;
+			for (baby = child->children.first; baby; baby = baby->next) {
+				if (baby->type != R_JSON_INTEGER) {
+					break;
+				}
+				RJson *sibling = baby->next;
+				if (!sibling || sibling->type != R_JSON_INTEGER) {
+					break;
+				}
+				RAnalVarConstraint constr;
+				constr.cond = (_RAnalCond)baby->num.s_value;
+				constr.val = sibling->num.u_value;
+				if (constr.cond < R_ANAL_COND_AL || constr.cond > R_ANAL_COND_LS) {
+					baby = sibling;
+					continue;
+				}
+				r_vector_push (&constraints, &constr);
+				baby = sibling;
+			}
+			break;
+		}
 		default:
 			break;
 	})
-
 
 	if (kind == R_ANAL_VAR_KIND_REG) {
 		if (!regname) {
@@ -809,9 +846,14 @@ R_API R_NULLABLE RAnalVar *r_serialize_anal_var_load(R_NONNULL RAnalFunction *fc
 	r_vector_foreach (&accesses, acc) {
 		r_anal_var_set_access (ret, acc->reg, fcn->addr + acc->offset, acc->type, acc->stackptr);
 	}
+	RAnalVarConstraint *constr;
+	r_vector_foreach (&constraints, constr) {
+		r_anal_var_add_constraint (ret, constr);
+	}
 
 beach:
 	r_vector_fini (&accesses);
+	r_vector_fini (&constraints);
 	return ret;
 }
 

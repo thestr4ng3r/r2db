@@ -6,6 +6,12 @@ option(R2DB_ENABLE_TESTS "Enable Tests for r2db" ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+	add_compile_options(-fdiagnostics-color=always)
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+	add_compile_options(-fcolor-diagnostics)
+endif ()
+
 set(SOURCE
 		include/sdb_archive.h
 		src/sdb_archive.c

@@ -478,7 +478,7 @@ Sdb *vars_ref_db() {
 	Sdb *db = sdb_new0 ();
 	sdb_set (db, "0x539", "{\"name\":\"hirsch\",\"bits\":64,\"type\":0,\"stack\":0,\"maxstack\":0,\"ninstr\":0,\"bp_frame\":true,\"diff\":{},\"bbs\":[],"
 		"\"vars\":["
-		"{\"name\":\"arg_rax\",\"type\":\"int64_t\",\"kind\":\"r\",\"reg\":\"rax\",\"arg\":true,\"accs\":[{\"off\":3,\"type\":\"r\",\"sp\":42,\"reg\":\"rax\"},{\"off\":13,\"type\":\"rw\",\"sp\":13,\"reg\":\"rbx\"},{\"off\":23,\"type\":\"w\",\"sp\":123,\"reg\":\"rcx\"}]},"
+		"{\"name\":\"arg_rax\",\"type\":\"int64_t\",\"kind\":\"r\",\"reg\":\"rax\",\"arg\":true,\"accs\":[{\"off\":3,\"type\":\"r\",\"sp\":42,\"reg\":\"rax\"},{\"off\":13,\"type\":\"rw\",\"sp\":13,\"reg\":\"rbx\"},{\"off\":23,\"type\":\"w\",\"sp\":123,\"reg\":\"rcx\"}],\"constrs\":[0,42,1,84,2,126,3,168,4,210,5,252,6,294,7,336,8,378,9,420,10,462,11,504,12,546,13,588,14,630,15,672]},"
 		"{\"name\":\"var_sp\",\"type\":\"const char *\",\"kind\":\"s\",\"delta\":16,\"accs\":[{\"off\":3,\"type\":\"w\",\"sp\":321,\"reg\":\"rsp\"}]},"
 		"{\"name\":\"var_bp\",\"type\":\"struct something\",\"kind\":\"b\",\"delta\":-16},"
 		"{\"name\":\"arg_bp\",\"type\":\"uint64_t\",\"kind\":\"b\",\"delta\":16,\"arg\":true,\"cmt\":\"I have no idea what this var does\"}]}", 0);
@@ -497,6 +497,17 @@ bool test_anal_var_save() {
 	r_anal_var_set_access (v, "rax", 1340, R_ANAL_VAR_ACCESS_TYPE_READ, 42);
 	r_anal_var_set_access (v, "rbx", 1350, R_ANAL_VAR_ACCESS_TYPE_READ | R_ANAL_VAR_ACCESS_TYPE_WRITE, 13);
 	r_anal_var_set_access (v, "rcx", 1360, R_ANAL_VAR_ACCESS_TYPE_WRITE, 123);
+
+	ut64 val = 0;
+	_RAnalCond cond;
+	for (cond = R_ANAL_COND_AL; cond <= R_ANAL_COND_LS; cond++) {
+		val += 42;
+		RAnalVarConstraint constr = {
+			.cond = cond,
+			.val = val
+		};
+		r_anal_var_add_constraint (v, &constr);
+	}
 
 	v = r_anal_function_set_var (f, 0x10, R_ANAL_VAR_KIND_SPV, "const char *", 0, false, "var_sp");
 	r_anal_var_set_access (v, "rsp", 1340, R_ANAL_VAR_ACCESS_TYPE_WRITE, 321);
@@ -526,7 +537,6 @@ bool test_anal_var_load() {
 
 	bool succ = r_serialize_anal_functions_load (db, anal, diff_parser, NULL);
 	mu_assert ("load success", succ);
-
 	RAnalFunction *f = r_anal_get_function_at (anal, 1337);
 	mu_assert_notnull (f, "function");
 
@@ -557,6 +567,16 @@ bool test_anal_var_load() {
 	mu_assert ("var accesses", found[0] && found[1] && found[2]);
 	RPVector *used = r_anal_function_get_vars_used_at (f, 1340);
 	mu_assert ("var used", r_pvector_contains (used, v));
+
+	mu_assert_eq (v->constraints.len, R_ANAL_COND_LS + 1, "constraints count");
+	ut64 val = 0;
+	_RAnalCond cond;
+	for (cond = R_ANAL_COND_AL; cond <= R_ANAL_COND_LS; cond++) {
+		val += 42;
+		RAnalVarConstraint *constr = r_vector_index_ptr (&v->constraints, (size_t)(cond - R_ANAL_COND_AL));
+		mu_assert_eq (constr->cond, cond, "constraint cond");
+		mu_assert_eq (constr->val, val, "constraint val");
+	}
 
 	v = r_anal_function_get_var (f, R_ANAL_VAR_KIND_SPV, 0x10);
 	mu_assert_notnull (v, "var");
@@ -951,7 +971,7 @@ Sdb *hints_ref_db() {
 	return db;
 }
 
-// All of these optypes need to be correctly loaded from potentiall older projects
+// All of these optypes need to be correctly loaded from potentially older projects
 // So changing anything here will require a migration pass!
 static int all_optypes[] = {
 	R_ANAL_OP_TYPE_COND, R_ANAL_OP_TYPE_REP, R_ANAL_OP_TYPE_MEM, R_ANAL_OP_TYPE_REG, R_ANAL_OP_TYPE_IND,

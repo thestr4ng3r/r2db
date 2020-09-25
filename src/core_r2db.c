@@ -17,6 +17,48 @@ static void usage(const RCore* const core) {
 	r_cons_cmd_help(help, core->print->flags & R_PRINT_FLAGS_COLOR);
 }
 
+static bool io_files_foreach_cb(void *user, void *data, ut32 id) {
+	RIODesc *desc = (RIODesc*) data;
+	eprintf ("  RIODesc %p, fd = %d, name = %s, uri = %s\n", desc, desc->fd, desc->name, desc->uri);
+	return true;
+}
+
+static void debug(RCore *core, const char *input) {
+	eprintf ("\n");
+	eprintf ("corefiles: (cur = %p)\n", core->file);
+	RListIter *it;
+	RCoreFile *f;
+	r_list_foreach (core->files, it, f) {
+		eprintf ("  %p fd = %d, dbg = %d, alive = %d\n", f, f->fd, f->dbg, f->alive);
+	}
+	eprintf ("\n");
+
+	eprintf ("binfiles: (cur = %p)\n", core->bin->cur);
+	RBinFile *bf;
+	r_list_foreach (core->bin->binfiles, it, bf) {
+		eprintf ("  %p, fd = %d, object = %p\n", bf, bf->fd, bf->o);
+		eprintf ("    RBinObject: fd = %d, id = %u, file = %s\n", bf->fd, bf->id, bf->file);
+	}
+
+	eprintf ("\n");
+
+	RIO *io = core->io;
+	eprintf ("io files:\n");
+	r_id_storage_foreach (io->files, io_files_foreach_cb, NULL);
+
+	eprintf ("\n");
+
+	eprintf ("io maps:\n");
+	size_t i;
+	for (i = 0; i < r_pvector_len (&io->maps); i++) {
+		RIOMap *map = r_pvector_at (&io->maps, i);
+		eprintf ("  RIOMap: %p, fd = %d, name = %s, itv.addr = 0x%"PFMT64x", itv.size = 0x%"PFMT64x", delta = 0x%"PFMT64x"\n",
+				map, map->fd, map->name, map->itv.addr, map->itv.size, map->delta);
+	}
+
+	eprintf ("\n");
+}
+
 static void cmd_project(RCore *core, const char *input) {
 	switch (*input) {
 	case 's':
@@ -33,6 +75,9 @@ static void cmd_project(RCore *core, const char *input) {
 				free (err);
 			}
 		}
+		break;
+	case 'd':
+		debug (core, input + 2);
 		break;
 	default:
 		usage (core);

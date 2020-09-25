@@ -25,6 +25,7 @@ jobs:
         run: |
           git clone https://github.com/radare/radare2
           cd radare2
+          git checkout r2db || echo "no r2db branch"
           mkdir build && cd build
           meson --prefix=/usr ..
           ninja

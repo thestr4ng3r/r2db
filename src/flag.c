@@ -83,7 +83,7 @@ beach:
 	return true;
 }
 
-R_API bool r_serialize_flag_zones_load(R_NONNULL Sdb *db, R_NONNULL RList/*<RFlagZoneItem *>*/ *zones, R_NULLABLE char **err) {
+R_API bool r_serialize_flag_zones_load(R_NONNULL Sdb *db, R_NONNULL RList/*<RFlagZoneItem *>*/ *zones, R_NULLABLE RSerializeResultInfo *res) {
 	r_return_val_if_fail (zones, false);
 	r_list_purge (zones);
 	bool r = sdb_foreach (db, zone_load_cb, zones);
@@ -279,7 +279,7 @@ static bool load_flags(R_NONNULL Sdb *flags_db, R_NONNULL RFlag *flag) {
 	return r;
 }
 
-R_API bool r_serialize_flag_load(R_NONNULL Sdb *db, R_NONNULL RFlag *flag, R_NULLABLE char **err) {
+R_API bool r_serialize_flag_load(R_NONNULL Sdb *db, R_NONNULL RFlag *flag, R_NULLABLE RSerializeResultInfo *res) {
 	r_flag_unset_all (flag);
 
 	const char *str = sdb_const_get (db, "base", NULL);
@@ -301,7 +301,7 @@ R_API bool r_serialize_flag_load(R_NONNULL Sdb *db, R_NONNULL RFlag *flag, R_NUL
 		SERIALIZE_ERR ("missing spaces namespace");
 		return false;
 	}
-	if (!r_serialize_spaces_load (spaces_db, &flag->spaces, false, err)) {
+	if (!r_serialize_spaces_load (spaces_db, &flag->spaces, false, res)) {
 		return false;
 	}
 
@@ -318,7 +318,7 @@ R_API bool r_serialize_flag_load(R_NONNULL Sdb *db, R_NONNULL RFlag *flag, R_NUL
 		return false;
 	}
 	r_flag_zone_reset (flag);
-	if (!r_serialize_flag_zones_load (zones_db, flag->zones, err)) {
+	if (!r_serialize_flag_zones_load (zones_db, flag->zones, res)) {
 		return false;
 	}
 

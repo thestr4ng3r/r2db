@@ -68,12 +68,17 @@ static void cmd_project(RCore *core, const char *input) {
 		break;
 	case 'l':
 		if (input[1] == ' ') {
-			char *err = NULL;
-			r_project_load_file (core, input + 2, &err);
-			if (err) {
-				eprintf ("Failed to load project: %s\n", err);
-				free (err);
+			RSerializeResultInfo *res = r_serialize_result_info_new ();
+			RProjectErr err = r_project_load_file (core, input + 2, res);
+			if (err != R_PROJECT_ERR_SUCCESS) {
+				eprintf ("Failed to load project: %d\n", err);
+				RListIter *it;
+				char *s;
+				r_list_foreach (res, it, s) {
+					eprintf ("  %s\n", s);
+				}
 			}
+			r_serialize_result_info_free (res);
 		}
 		break;
 	case 'd':

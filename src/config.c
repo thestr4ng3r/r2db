@@ -32,7 +32,7 @@ static bool load_config_cb(void *user, const char *k, const char *v) {
 	return 1;
 }
 
-R_API bool r_serialize_config_load(R_NONNULL Sdb *db, R_NONNULL RConfig *config, R_NULLABLE char **err) {
+R_API bool r_serialize_config_load(R_NONNULL Sdb *db, R_NONNULL RConfig *config, R_NULLABLE RSerializeResultInfo *res) {
 	sdb_foreach (db, load_config_cb, config);
 	return true;
 }

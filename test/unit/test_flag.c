@@ -172,10 +172,8 @@ static bool flag_cmp_cb(RFlagItem *fi, void *user) {
 static bool test_load(Sdb *db, RFlag *ref) {
 	RFlag *flag = r_flag_new ();
 
-	char *err = NULL;
-	bool suck = r_serialize_flag_load (db, flag, &err);
+	bool suck = r_serialize_flag_load (db, flag, NULL);
 	sdb_free (db);
-	mu_assert (err, err == NULL);
 	mu_assert ("load success", suck);
 
 	if (!spaces_eq (&flag->spaces, &ref->spaces)) {

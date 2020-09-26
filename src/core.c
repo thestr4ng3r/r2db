@@ -31,14 +31,14 @@ R_API void r_serialize_core_save(R_NONNULL Sdb *db, R_NONNULL RCore *core) {
 	sdb_set (db, "blocksize", buf, 0);
 }
 
-R_API bool r_serialize_core_load(R_NONNULL Sdb *db, R_NONNULL RCore *core, R_NULLABLE char **err) {
+R_API bool r_serialize_core_load(R_NONNULL Sdb *db, R_NONNULL RCore *core, R_NULLABLE RSerializeResultInfo *res) {
 	Sdb *subdb;
 
 #define SUB(ns, call) SUB_DO(ns, call, return false;)
 
-	SUB ("config", r_serialize_config_load (subdb, core->config, err));
-	SUB ("flags", r_serialize_flag_load (subdb, core->flags, err));
-	SUB ("anal", r_serialize_anal_load (subdb, core->anal, err));
+	SUB ("config", r_serialize_config_load (subdb, core->config, res));
+	SUB ("flags", r_serialize_flag_load (subdb, core->flags, res));
+	SUB ("anal", r_serialize_anal_load (subdb, core->anal, res));
 
 	const char *str = sdb_get (db, "offset", 0);
 	if (!str || !*str) {

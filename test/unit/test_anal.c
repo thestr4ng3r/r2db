@@ -1791,6 +1791,7 @@ bool test_anal_load() {
 
 	char *cc = r_anal_cc_get (anal, "sectarian");
 	mu_assert_streq (cc, "rax sectarian (rdx, rcx, stack);", "get cc");
+	free (cc);
 
 	r_anal_free (anal);
 	mu_end;

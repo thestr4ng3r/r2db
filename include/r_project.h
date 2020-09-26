@@ -2,6 +2,7 @@
 #ifndef R2_PROJECT_H
 #define R2_PROJECT_H
 
+#include <r_serialize.h>
 #include <r_core.h>
 #include <sdb.h>
 
@@ -23,8 +24,8 @@ typedef enum r_project_err {
 
 R_API RProjectErr r_project_save(RCore *core, RProject *prj);
 R_API RProjectErr r_project_save_file(RCore *core, const char *file);
-R_API RProjectErr r_project_load(RCore *core, RProject *prj, char **err);
-R_API RProjectErr r_project_load_file(RCore *core, const char *file, char **err);
+R_API RProjectErr r_project_load(RCore *core, RProject *prj, RSerializeResultInfo *res);
+R_API RProjectErr r_project_load_file(RCore *core, const char *file, RSerializeResultInfo *res);
 
 #ifdef __cplusplus
 }

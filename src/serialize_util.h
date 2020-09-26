@@ -4,7 +4,7 @@
 
 #include <r_util/r_str.h>
 
-#define SERIALIZE_ERR(...) do { if(err) { *err = r_str_newf(__VA_ARGS__); } } while(0)
+#define SERIALIZE_ERR(...) do { if(res) { r_list_push (res, r_str_newf(__VA_ARGS__)); } } while(0)
 
 // Hashtable-based key parser to prevent strcmp chains
 typedef HtPP KeyParser;

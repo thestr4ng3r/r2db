@@ -31,7 +31,7 @@ R_API RProjectErr r_project_save_file(RCore *core, const char *file) {
 	return R_PROJECT_ERR_SUCCESS;
 }
 
-R_API RProjectErr r_project_load(RCore *core, RProject *prj, char **err) {
+R_API RProjectErr r_project_load(RCore *core, RProject *prj, RSerializeResultInfo *res) {
 	const char *type = sdb_const_get (prj, R2DB_KEY_TYPE, 0);
 	if (!type || strcmp (type, R2DB_PROJECT_TYPE) != 0) {
 		return R_PROJECT_ERR_INVALID_TYPE;
@@ -52,23 +52,20 @@ R_API RProjectErr r_project_load(RCore *core, RProject *prj, char **err) {
 		SERIALIZE_ERR ("missing core namespace");
 		return R_PROJECT_ERR_INVALID_CONTENTS;
 	}
-	if (err) {
-		*err = NULL;
-	}
-	if (!r_serialize_core_load (core_db, core, err)) {
+	if (!r_serialize_core_load (core_db, core, res)) {
 		return R_PROJECT_ERR_INVALID_CONTENTS;
 	}
 
 	return R_PROJECT_ERR_SUCCESS;
 }
 
-R_API RProjectErr r_project_load_file(RCore *core, const char *file, char **err) {
+R_API RProjectErr r_project_load_file(RCore *core, const char *file, RSerializeResultInfo *res) {
 	RProject *prj = sdb_archive_load (file);
 	if (!prj) {
 		SERIALIZE_ERR ("failed to read database file");
 		return R_PROJECT_ERR_UNKNOWN;
 	}
-	RProjectErr ret = r_project_load (core, prj, err);
+	RProjectErr ret = r_project_load (core, prj, res);
 	sdb_free (prj);
 	return ret;
 }

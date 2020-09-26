@@ -500,12 +500,12 @@ static bool block_load_cb(void *user, const char *k, const char *v) {
 	if (errno || proto.size == UT64_MAX
 		|| (fingerprint_size != SIZE_MAX && fingerprint_size != proto.size)
 		|| (proto.op_pos && proto.op_pos_size != proto.ninstr - 1)) { // op_pos_size > ninstr - 1 is legal but we require the format to be like this.
-		goto error;
+		goto resor;
 	}
 
 	RAnalBlock *block = r_anal_create_block (ctx->anal, addr, proto.size);
 	if (!block) {
-		goto error;
+		goto resor;
 	}
 	block->jump = proto.jump;
 	block->fail = proto.fail;
@@ -527,7 +527,7 @@ static bool block_load_cb(void *user, const char *k, const char *v) {
 	block->cmpreg = proto.cmpreg;
 
 	return true;
-error:
+resor:
 	free (proto.fingerprint);
 	r_anal_diff_free (proto.diff);
 	r_anal_switch_op_free (proto.switch_op);
@@ -535,7 +535,7 @@ error:
 	return false;
 }
 
-R_API bool r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_blocks_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE RSerializeResultInfo *res) {
 	BlockLoadCtx ctx = { anal, key_parser_new (), diff_parser };
 	if (!ctx.parser) {
 		SERIALIZE_ERR ("parser init failed");
@@ -1194,7 +1194,7 @@ beach:
 	return ret;
 }
 
-R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_functions_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, RSerializeAnalDiffParser diff_parser, R_NULLABLE RSerializeResultInfo *res) {
 	FunctionLoadCtx ctx = {
 		.anal = anal,
 		.parser = key_parser_new (),
@@ -1290,11 +1290,11 @@ static bool xrefs_load_cb(void *user, const char *k, const char *v) {
 	const RJson *child;
 	for (child = json->children.first; child; child = child->next) {
 		if (child->type != R_JSON_OBJECT) {
-			goto error;
+			goto resor;
 		}
 		const RJson *baby = r_json_get (child, "to");
 		if (!baby || baby->type != R_JSON_INTEGER) {
-			goto error;
+			goto resor;
 		}
 		ut64 to = baby->num.u_value;
 
@@ -1303,7 +1303,7 @@ static bool xrefs_load_cb(void *user, const char *k, const char *v) {
 		if (baby) {
 			// must be a 1-char string
 			if (baby->type != R_JSON_STRING || !baby->str_value[0] || baby->str_value[1]) {
-				goto error;
+				goto resor;
 			}
 			switch (baby->str_value[0]) {
 			case R_ANAL_REF_TYPE_CODE:
@@ -1313,7 +1313,7 @@ static bool xrefs_load_cb(void *user, const char *k, const char *v) {
 				type = baby->str_value[0];
 				break;
 			default:
-				goto error;
+				goto resor;
 			}
 		}
 
@@ -1324,13 +1324,13 @@ static bool xrefs_load_cb(void *user, const char *k, const char *v) {
 	free (json_str);
 
 	return true;
-error:
+resor:
 	r_json_free (json);
 	free (json_str);
 	return false;
 }
 
-R_API bool r_serialize_anal_xrefs_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_xrefs_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	bool ret = sdb_foreach (db, xrefs_load_cb, anal);
 	if (!ret) {
 		SERIALIZE_ERR ("xrefs parsing failed");
@@ -1449,7 +1449,7 @@ static bool meta_load_cb(void *user, const char *k, const char *v) {
 	const RJson *child;
 	for (child = json->children.first; child; child = child->next) {
 		if (child->type != R_JSON_OBJECT) {
-			goto error;
+			goto resor;
 		}
 
 		ut64 size = 1;
@@ -1553,19 +1553,19 @@ static bool meta_load_cb(void *user, const char *k, const char *v) {
 	free (json_str);
 
 	return true;
-error:
+resor:
 	r_json_free (json);
 	free (json_str);
 	return false;
 }
 
-R_API bool r_serialize_anal_meta_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_meta_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	Sdb *spaces_db = sdb_ns (db, "spaces", false);
 	if (!spaces_db) {
 		SERIALIZE_ERR ("missing meta spaces namespace");
 		return false;
 	}
-	if (!r_serialize_spaces_load (spaces_db, &anal->meta_spaces, false, err)) {
+	if (!r_serialize_spaces_load (spaces_db, &anal->meta_spaces, false, res)) {
 		return false;
 	}
 	bool ret = sdb_foreach (db, meta_load_cb, anal);
@@ -1880,13 +1880,13 @@ static bool hints_load_cb(void *user, const char *k, const char *v) {
 	free (json_str);
 
 	return true;
-error:
+resor:
 	r_json_free (json);
 	free (json_str);
 	return false;
 }
 
-R_API bool r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_hints_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	HintsLoadCtx ctx = {
 		.anal = anal,
 		.parser = key_parser_new (),
@@ -1928,7 +1928,7 @@ R_API void r_serialize_anal_classes_save(R_NONNULL Sdb *db, R_NONNULL RAnal *ana
 	sdb_copy (anal->sdb_classes, db);
 }
 
-R_API bool r_serialize_anal_classes_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_classes_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	if (!sdb_ns (db, "attrs", false)) {
 		SERIALIZE_ERR ("missing attrs namespace");
 		return false;
@@ -1943,7 +1943,7 @@ R_API void r_serialize_anal_types_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal)
 	sdb_copy (anal->sdb_types, db);
 }
 
-R_API bool r_serialize_anal_types_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_types_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	sdb_reset (anal->sdb_types);
 	sdb_copy (db, anal->sdb_types);
 	return true;
@@ -1954,7 +1954,7 @@ R_API void r_serialize_anal_sign_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) 
 	r_serialize_spaces_save (sdb_ns (db, "spaces", true), &anal->zign_spaces);
 }
 
-R_API bool r_serialize_anal_sign_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_sign_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	sdb_reset (anal->sdb_zigns);
 	sdb_copy (db, anal->sdb_zigns);
 	Sdb *spaces_db = sdb_ns (db, "spaces", false);
@@ -1962,7 +1962,7 @@ R_API bool r_serialize_anal_sign_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, 
 		SERIALIZE_ERR ("missing spaces namespace");
 		return false;
 	}
-	if (!r_serialize_spaces_load (spaces_db, &anal->zign_spaces, false, err)) {
+	if (!r_serialize_spaces_load (spaces_db, &anal->zign_spaces, false, res)) {
 		return false;
 	}
 	return true;
@@ -1984,7 +1984,7 @@ R_API void r_serialize_anal_imports_save(R_NONNULL Sdb *db, R_NONNULL RAnal *ana
 	pj_free (j);
 }
 
-R_API bool r_serialize_anal_imports_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_imports_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	char *json_str = sdb_get (db, "imports", 0);
 	if (!json_str) {
 		SERIALIZE_ERR ("missing imports key");
@@ -2018,7 +2018,7 @@ R_API void r_serialize_anal_pin_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	sdb_copy (anal->sdb_pins, db);
 }
 
-R_API bool r_serialize_anal_pin_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_pin_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	sdb_copy (db, anal->sdb_pins);
 	return true;
 }
@@ -2027,7 +2027,7 @@ R_API void r_serialize_anal_cc_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	sdb_copy (anal->sdb_cc, db);
 }
 
-R_API bool r_serialize_anal_cc_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_cc_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	sdb_copy (db, anal->sdb_cc);
 	return true;
 }
@@ -2046,7 +2046,7 @@ R_API void r_serialize_anal_save(R_NONNULL Sdb *db, R_NONNULL RAnal *anal) {
 	r_serialize_anal_cc_save (sdb_ns (db, "cc", true), anal);
 }
 
-R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE char **err) {
+R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NULLABLE RSerializeResultInfo *res) {
 	bool ret = false;
 	RSerializeAnalDiffParser diff_parser = r_serialize_anal_diff_parser_new ();
 	if (!diff_parser) {
@@ -2057,11 +2057,11 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 
 	Sdb *subdb;
 #define SUB(ns, call) SUB_DO(ns, call, goto beach;)
-	SUB ("xrefs", r_serialize_anal_xrefs_load (subdb, anal, err));
+	SUB ("xrefs", r_serialize_anal_xrefs_load (subdb, anal, res));
 
-	SUB ("blocks", r_serialize_anal_blocks_load (subdb, anal, diff_parser, err));
+	SUB ("blocks", r_serialize_anal_blocks_load (subdb, anal, diff_parser, res));
 	// All bbs have ref=1 now
-	SUB ("functions", r_serialize_anal_functions_load (subdb, anal, diff_parser, err));
+	SUB ("functions", r_serialize_anal_functions_load (subdb, anal, diff_parser, res));
 	// BB's refs have increased if they are part of a function.
 	// We must subtract from each to hold our invariant again.
 	// If any block has ref=0 then, it should be deleted. But we can't do this while
@@ -2079,16 +2079,16 @@ R_API bool r_serialize_anal_load(R_NONNULL Sdb *db, R_NONNULL RAnal *anal, R_NUL
 	}
 	r_pvector_clear (&orphaned_bbs); // unrefs all
 
-	SUB ("meta", r_serialize_anal_meta_load (subdb, anal, err));
-	SUB ("hints", r_serialize_anal_hints_load (subdb, anal, err));
-	SUB ("classes", r_serialize_anal_classes_load (subdb, anal, err));
-	SUB ("types", r_serialize_anal_types_load (subdb, anal, err));
-	SUB ("zigns", r_serialize_anal_sign_load (subdb, anal, err));
-	if (!r_serialize_anal_imports_load (db, anal, err)) {
+	SUB ("meta", r_serialize_anal_meta_load (subdb, anal, res));
+	SUB ("hints", r_serialize_anal_hints_load (subdb, anal, res));
+	SUB ("classes", r_serialize_anal_classes_load (subdb, anal, res));
+	SUB ("types", r_serialize_anal_types_load (subdb, anal, res));
+	SUB ("zigns", r_serialize_anal_sign_load (subdb, anal, res));
+	if (!r_serialize_anal_imports_load (db, anal, res)) {
 		goto beach;
 	}
-	SUB ("pins", r_serialize_anal_pin_load (subdb, anal, err));
-	SUB ("cc", r_serialize_anal_cc_load (subdb, anal, err));
+	SUB ("pins", r_serialize_anal_pin_load (subdb, anal, res));
+	SUB ("cc", r_serialize_anal_cc_load (subdb, anal, res));
 
 	ret = true;
 beach:

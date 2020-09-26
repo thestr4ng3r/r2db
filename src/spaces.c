@@ -50,7 +50,7 @@ static bool foreach_space_cb(void *user, const char *k, const char *v) {
 	return true;
 }
 
-R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces, bool load_name, R_NULLABLE char **err) {
+R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces, bool load_name, R_NULLABLE RSerializeResultInfo *res) {
 	if (load_name) {
 		char *old_name = (char *)spaces->name;
 		spaces->name = sdb_get (db, KEY_NAME, NULL);
@@ -77,23 +77,23 @@ R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces,
 		return false;
 	}
 
-	bool res = true;
+	bool ret = true;
 	RJson *stack_json = r_json_parse (stack_json_str);
 	if (!stack_json) {
 		SERIALIZE_ERR ("failed to parse stackspace json");
-		res = false;
+		ret = false;
 		goto beach;
 	}
 	if (stack_json->type != R_JSON_ARRAY) {
 		SERIALIZE_ERR ("stackspace json is not an array");
-		res = false;
+		ret = false;
 		goto beach;
 	}
 	RJson *stack_element;
 	for (stack_element = stack_json->children.first; stack_element; stack_element = stack_element->next) {
 		if (stack_element->type != R_JSON_STRING) {
 			SERIALIZE_ERR ("stackspace element is not a string");
-			res = false;
+			ret = false;
 			goto beach;
 		}
 		RSpace *space = r_spaces_get (spaces, stack_element->str_value);
@@ -105,5 +105,5 @@ R_API bool r_serialize_spaces_load(R_NONNULL Sdb *db, R_NONNULL RSpaces *spaces,
 beach:
 	r_json_free (stack_json);
 	free (stack_json_str);
-	return res;
+	return ret;
 }

@@ -58,9 +58,7 @@ bool test_spaces_load_noname_nostack(void) {
 	sdb_set (db_spaces, PERTURBATOR, "s", 0);
 
 	RSpaces *spaces = r_spaces_new ("fixed name");
-	char *err = NULL;
-	bool suck = r_serialize_spaces_load (db, spaces, false, &err);
-	mu_assert (err, err == NULL);
+	bool suck = r_serialize_spaces_load (db, spaces, false, NULL);
 	mu_assert ("load success", suck);
 	mu_assert_streq (spaces->name, "fixed name", "spaces load without name");
 	mu_assert_null (spaces->current, "spaces load no current");
@@ -105,9 +103,7 @@ bool test_spaces_load_name_stack(void) {
 	sdb_set (db_spaces, PERTURBATOR, "s", 0);
 
 	RSpaces *spaces = r_spaces_new ("");
-	char *err = NULL;
-	bool suck = r_serialize_spaces_load (db, spaces, true, &err);
-	mu_assert (err, err == NULL);
+	bool suck = r_serialize_spaces_load (db, spaces, true, NULL);
 	mu_assert ("load success", suck);
 	mu_assert_streq (spaces->name, "myspaces", "loaded name");
 	mu_assert_notnull (spaces->current, "current non-null");

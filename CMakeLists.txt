@@ -23,7 +23,8 @@ set(SOURCE
 		src/flag.c
 		src/core.c
 		src/config.c
-		src/anal.c)
+		src/anal.c
+		src/io.c)
 
 include_directories(include)
 

@@ -1590,7 +1590,7 @@ bool test_anal_cc_load() {
 	mu_assert ("load success", succ);
 
 	char *v = r_anal_cc_get (anal, "sectarian");
-	mu_assert_streq (v, "rax sectarian (rdx, rcx, stack, rsi, rdi);", "get cc");
+	mu_assert_streq (v, "rax rsi.sectarian (rdx, rcx, stack) rdi;", "get cc");
 	free (v);
 	const char *vv = r_anal_cc_self (anal, "sectarian");
 	mu_assert_streq (vv, "rsi", "get self");
